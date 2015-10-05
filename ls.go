@@ -8,6 +8,7 @@ import (
 	"strings"
 	"syscall"
 	"unsafe"
+	"path"
 )
 
 type DisplayEntry struct {
@@ -45,11 +46,22 @@ func main() {
 		}
 	}
 
+	if files.Len() == 0 {
+		files.Data[files.Append()] = "."
+	}
+
 	var showDirEntries bool
+	var showAll bool
+	var showAlmostAll bool
 	for iter := options.Iterator(0); iter.Next(); {
 		switch options.Data[iter.Pos()] {
 		case "-d":
 			showDirEntries = true
+		case "-a":
+			showAll = true
+		case "-A":
+			showAlmostAll = true
+			showAll = true
 		}
 	}
 
@@ -73,8 +85,18 @@ func main() {
 				if stat.IsDir() {
 					if file, err := os.Open(fileName); err == nil {
 						if fileInfos, err := file.Readdir(0); err == nil {
+							if showAll && !showAlmostAll {
+								selected.Data[selected.Append()] = DisplayEntry{".", stat}
+								if parent, err := os.Stat(path.Dir(fileName)); err == nil {
+									selected.Data[selected.Append()] = DisplayEntry{"..", parent}
+								} else {
+									log.Print(err)
+								}
+							}
 							for _, v := range fileInfos {
-								selected.Data[selected.Append()] = DisplayEntry{v.Name(), v}
+								if !strings.HasPrefix(v.Name(), ".") || showAll {
+									selected.Data[selected.Append()] = DisplayEntry{v.Name(), v}
+								}
 							}
 						} else {
 							log.Print(err)
