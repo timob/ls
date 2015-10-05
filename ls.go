@@ -6,7 +6,8 @@ import (
 	"fmt"
 	"log"
 	"strings"
-	"strconv"
+	"syscall"
+	"unsafe"
 )
 
 type DisplayEntry struct {
@@ -17,6 +18,16 @@ type DisplayEntry struct {
 type DisplayEntryList struct {
 	Data []DisplayEntry
 	list.Slice
+}
+
+func getTermSize() (int, int, error) {
+	var dimensions [4]uint16
+
+	fd := os.Stdout.Fd()
+	if _, _, err := syscall.Syscall6(syscall.SYS_IOCTL, uintptr(fd), uintptr(syscall.TIOCGWINSZ), uintptr(unsafe.Pointer(&dimensions)), 0, 0, 0); err != 0 {
+		return -1, -1, err
+	}
+	return int(dimensions[1]), int(dimensions[0]), nil
 }
 
 func main() {
@@ -43,8 +54,8 @@ func main() {
 	}
 
 	var width int
-	if i, err := strconv.Atoi(os.Getenv("COLUMNS")); err == nil {
-		width = i
+	if w, _, err := getTermSize(); err == nil {
+		width = w
 	} else {
 		width = 80
 	}
@@ -81,27 +92,25 @@ func main() {
 		smallestWord := 1
 		cols := width / (padding + smallestWord)
 		colWidths := make([]int, cols)
+A:
 		for cols > 1 {
 			colWidths = colWidths[:cols]
 			for i := range colWidths {
 				colWidths[i] = 0
 			}
+			pos := (cols - 1) * padding
 			for i, v := range selected.Data {
 				p := i % cols
 				if len(v.path) > colWidths[p] {
+					pos += len(v.path) - colWidths[p]
+					if pos >= width {
+						cols--
+						continue A
+					}
 					colWidths[p] = len(v.path)
 				}
 			}
-			pos := 0
-			for _, v := range colWidths {
-				pos += v
-			}
-			pos += (cols - 1) * padding
-			if pos >= width {
-				cols--
-			} else {
-				break
-			}
+			break
 		}
 
 		for i, v := range selected.Data {
