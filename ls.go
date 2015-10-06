@@ -9,6 +9,7 @@ import (
 	"syscall"
 	"unsafe"
 	"path"
+	"github.com/bradfitz/slice"
 )
 
 type DisplayEntry struct {
@@ -40,7 +41,7 @@ func main() {
 		if v := files.Data[iter.Pos()]; strings.HasPrefix(v, "-") {
 			options.Data[options.Append()] = v
 			iter.Remove()
-			if strings.HasPrefix(v, "--") {
+			if v == "--" {
 				break
 			}
 		}
@@ -53,7 +54,27 @@ func main() {
 	var showDirEntries bool
 	var showAll bool
 	var showAlmostAll bool
+	const (
+		name int = iota
+		modTime int = iota
+		size int = iota
+	)
+	var sortType int = name
+	var reverseSort bool
 	for iter := options.Iterator(0); iter.Next(); {
+		if option := options.Data[iter.Pos()]; !strings.HasPrefix(option, "--") && len(option) > 2 {
+			letters := list.NewSliceList(&list.ByteSlice{Data:[]byte(option[1:])}).(*list.ByteSlice)
+			var removed bool
+			for iter2 := letters.Iterator(letters.Len() - 1); iter2.Prev(); {
+				options.Data[iter.Insert()] = "-" + string(letters.Data[iter2.Pos()])
+				if !removed {
+					iter.Remove()
+					removed = true
+				}
+				iter.Prev()
+			}
+		}
+
 		switch options.Data[iter.Pos()] {
 		case "-d":
 			showDirEntries = true
@@ -62,6 +83,14 @@ func main() {
 		case "-A":
 			showAlmostAll = true
 			showAll = true
+		case "-t":
+			sortType = modTime
+		case "-S":
+			sortType = size
+		case "-r":
+			reverseSort = true
+		default:
+			log.Fatalf("unkown option %s", options.Data[iter.Pos()])
 		}
 	}
 
@@ -104,11 +133,27 @@ func main() {
 					} else {
 						log.Print(err)
 					}
+				} else {
+					selected.Data[selected.Append()] = DisplayEntry{fileName, stat}
 				}
 			} else {
 				log.Print(err)
 			}
 		}
+
+		slice.Sort(selected.Data, func(i, j int) (v bool) {
+			if sortType == modTime {
+				v = selected.Data[i].ModTime().Before(selected.Data[j].ModTime())
+			} else if sortType == size {
+				v = selected.Data[i].Size() < selected.Data[j].Size()
+			} else {
+				v = strings.ToLower(selected.Data[i].path) < strings.ToLower(selected.Data[j].path)
+			}
+			if !reverseSort {
+				v = !v
+			}
+			return
+		})
 
 		padding := 2
 		smallestWord := 1
