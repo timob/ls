@@ -32,6 +32,35 @@ func getTermSize() (int, int, error) {
 	return int(dimensions[1]), int(dimensions[0]), nil
 }
 
+func strcmpi(a, b string) int {
+	for i, av := range a {
+		if i > len(b) {
+			return 1
+		}
+		if av > 96 && av < 123 {
+			av -= 32
+		}
+		bv := rune(b[i])
+		if bv > 96 && bv < 123 {
+			bv -= 32
+		}
+
+		if av != bv {
+			if av > bv {
+				return 1
+			} else {
+				return -1
+			}
+		}
+	}
+
+	if len(b) > len(a) {
+		return -1
+	} else {
+		return 0
+	}
+}
+
 func main() {
 	files := list.NewSliceList(&list.StringSlice{Data:os.Args}).(*list.StringSlice)
 	options := list.NewSliceList(&list.StringSlice{}).(*list.StringSlice)
@@ -142,14 +171,28 @@ func main() {
 		}
 
 		slice.Sort(selected.Data, func(i, j int) (v bool) {
+			var same bool
 			if sortType == modTime {
 				v = selected.Data[i].ModTime().Before(selected.Data[j].ModTime())
+				if !v {
+					same = selected.Data[i].ModTime().Equal(selected.Data[j].ModTime())
+				}
+				v = !v
 			} else if sortType == size {
-				v = selected.Data[i].Size() < selected.Data[j].Size()
+				d := selected.Data[j].Size() - selected.Data[i].Size()
+				if d > 0 {
+					v = true
+				} else if d == 0 {
+					same = true
+				}
+				v = !v
 			} else {
-				v = strings.ToLower(selected.Data[i].path) < strings.ToLower(selected.Data[j].path)
+				// strcoll?
+				v = strcmpi(selected.Data[i].path, selected.Data[j].path) == -1
 			}
-			if !reverseSort {
+			if same {
+				v = strcmpi(selected.Data[i].path, selected.Data[j].path) == -1
+			} else if reverseSort {
 				v = !v
 			}
 			return
