@@ -155,7 +155,7 @@ func modeString(mode os.FileMode) string {
 	return string(output)
 }
 
-func display(selected []DisplayEntry) {
+func display(selected []DisplayEntry, root string) {
 	slice.Sort(selected, func(i, j int) (v bool) {
 		var same bool
 		if sortType == modTime {
@@ -178,7 +178,9 @@ func display(selected []DisplayEntry) {
 		}
 		if same {
 			v = strcmpi(selected[i].path, selected[j].path) == -1
-		} else if reverseSort {
+		}
+
+		if reverseSort {
 			v = !v
 		}
 		return
@@ -242,7 +244,7 @@ func display(selected []DisplayEntry) {
 			sizePad := strings.Repeat(" ", colWidths[3] - decimalLen(v.Size()))
 			name := v.path
 			if v.Mode() & os.ModeSymlink != 0 {
-				if l, err  := os.Readlink(v.path); err == nil {
+				if l, err  := os.Readlink(root + v.path); err == nil {
 					name = name + " -> " + l
 				} else {
 					log.Print(err)
@@ -328,47 +330,73 @@ func main() {
 
 	selected := list.NewSliceList(&DisplayEntryList{}).(*DisplayEntryList)
 
-	
 	for iter := files.Iterator(0); iter.Next(); {
-		if fileName := files.Data[iter.Pos()]; showDirEntries {
+		fileName := files.Data[iter.Pos()]
+		if showDirEntries {
 			if stat, err := os.Lstat(fileName); err == nil {
 				selected.Data[selected.Append()] = DisplayEntry{fileName, stat}
 			} else {
 				log.Print(err)
 			}
+			iter.Remove()
 		} else {
-			if stat, err := os.Stat(fileName); err == nil {
+			if stat, err := os.Lstat(fileName); err == nil {
 				if stat.IsDir() {
-					if file, err := os.Open(fileName); err == nil {
-						if fileInfos, err := file.Readdir(0); err == nil {
-							if showAll && !showAlmostAll {
-								selected.Data[selected.Append()] = DisplayEntry{".", stat}
-								if parent, err := os.Stat(path.Dir(fileName)); err == nil {
-									selected.Data[selected.Append()] = DisplayEntry{"..", parent}
-								} else {
-									log.Print(err)
-								}
-							}
-							for _, v := range fileInfos {
-								if !strings.HasPrefix(v.Name(), ".") || showAll {
-									selected.Data[selected.Append()] = DisplayEntry{v.Name(), v}
-								}
-							}
-						} else {
-							log.Print(err)
-						}
+					continue
+				} else {
+					selected.Data[selected.Append()] = DisplayEntry{fileName, stat}
+					iter.Remove()
+				}
+			} else {
+				log.Print(err)
+				iter.Remove()
+			}
+		}
+	}
+
+	if selected.Len() > 0 {
+		display(selected.Data, "")
+	}
+
+	// directories
+	for iter := files.Iterator(0); iter.Next(); {
+		fileName := files.Data[iter.Pos()]
+
+		if selected.Len() > 0 {
+			selected.Clear()
+			fmt.Println()
+			fmt.Printf("%s:\n", fileName)
+		}
+
+		var total int64 = 0
+		if file, err := os.Open(fileName); err == nil {
+			if fileInfos, err := file.Readdir(0); err == nil {
+				if showAll && !showAlmostAll {
+					if stat, err := os.Stat(fileName); err == nil {
+						selected.Data[selected.Append()] = DisplayEntry{".", stat}
 					} else {
 						log.Print(err)
 					}
-				} else {
-					selected.Data[selected.Append()] = DisplayEntry{fileName, stat}
+					if parent, err := os.Stat(path.Dir(fileName)); err == nil {
+						selected.Data[selected.Append()] = DisplayEntry{"..", parent}
+					} else {
+						log.Print(err)
+					}
+				}
+				for _, v := range fileInfos {
+					if showAll || !strings.HasPrefix(v.Name(), ".") {
+						total += v.Size()
+						selected.Data[selected.Append()] = DisplayEntry{v.Name(), v}
+					}
 				}
 			} else {
 				log.Print(err)
 			}
+		} else {
+			log.Print(err)
 		}
 
-		display(selected.Data)
-		selected.Clear()
+		fmt.Printf("total %d\n", total/1024)
+		display(selected.Data, fileName + "/")
 	}
 }
