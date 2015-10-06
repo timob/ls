@@ -301,7 +301,7 @@ func main() {
 				userPad := strings.Repeat(" ", colWidths[1] - len(li.userName))
 				groupPad := strings.Repeat(" ", colWidths[2] - len(li.groupName))
 				sizePad := strings.Repeat(" ", colWidths[3] - decimalLen(v.Size()))
-				fmt.Printf("%s %s %d %s %s %s %s %s %d %s %s\n", v.Mode(), linkPad, li.hardLinks, li.userName, userPad, li.groupName, groupPad, sizePad, v.Size(), timeStr, v.path)
+				fmt.Printf("%s %s %d %s %s %s %s %s %d %s %s\n", v.Mode() &^ os.ModeTemporary &^ os.ModeSticky, linkPad, li.hardLinks, li.userName, userPad, li.groupName, groupPad, sizePad, v.Size(), timeStr, v.path)
 			} else {
 				w := colWidths[i % cols]
 				if i % cols == 0 {
