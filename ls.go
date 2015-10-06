@@ -23,6 +23,21 @@ type DisplayEntryList struct {
 	list.Slice
 }
 
+var showDirEntries bool
+var showAll bool
+var showAlmostAll bool
+var longList bool
+const (
+	name int = iota
+	modTime int = iota
+	size int = iota
+)
+var sortType int = name
+var reverseSort bool
+
+var width int
+
+
 func getTermSize() (int, int, error) {
 	var dimensions [4]uint16
 
@@ -105,6 +120,152 @@ func strcmpi(a, b string) int {
 	}
 }
 
+func modeString(mode os.FileMode) string {
+	output := []byte(strings.Repeat("-", 10))
+	if mode & os.ModeDir != 0{
+		output[0] = 'd'
+	} else if mode & os.ModeSymlink != 0{
+		output[0] = 'l'
+	} else if mode & os.ModeNamedPipe != 0{
+		output[0] = 'p'
+	} else if mode & os.ModeSocket != 0{
+		output[0] = 's'
+	} else if mode & os.ModeCharDevice != 0 && mode & os.ModeDevice != 0 {
+		output[0] = 'c'
+	}
+
+	const rwx = "rwxrwxrwx"
+	for i, c := range rwx {
+		bitSet := mode&(1<<uint(9-1-i)) != 0
+		if bitSet {
+			if (i == 2 && mode & os.ModeSetuid != 0) || (i == 5 && mode & os.ModeSetgid != 0) {
+				output[i+1] = 's'
+			} else if (i == 2 || i == 5) && mode & os.ModeSticky != 0 {
+				output[i+1] = 't'
+			} else {
+				output[i+1] = byte(c)
+			}
+		} else if (i == 2 && mode & os.ModeSetuid != 0) || (i == 5 && mode & os.ModeSetgid != 0) {
+			output[i+1] = 'S'
+		} else if (i == 2 || i == 5) && mode & os.ModeSticky != 0 {
+			output[i+1] = 'T'
+		}
+	}
+
+	return string(output)
+}
+
+func display(selected []DisplayEntry) {
+	slice.Sort(selected, func(i, j int) (v bool) {
+		var same bool
+		if sortType == modTime {
+			v = selected[i].ModTime().Before(selected[j].ModTime())
+			if !v {
+				same = selected[i].ModTime().Equal(selected[j].ModTime())
+			}
+			v = !v
+		} else if sortType == size {
+			d := selected[j].Size() - selected[i].Size()
+			if d > 0 {
+				v = true
+			} else if d == 0 {
+				same = true
+			}
+			v = !v
+		} else {
+			// strcoll?
+			v = strcmpi(selected[i].path, selected[j].path) == -1
+		}
+		if same {
+			v = strcmpi(selected[i].path, selected[j].path) == -1
+		} else if reverseSort {
+			v = !v
+		}
+		return
+	})
+
+	padding := 2
+	smallestWord := 1
+	var cols int
+	var colWidths []int
+
+	if longList {
+		cols = 4
+		colWidths = make([]int, cols)
+		for _, v := range selected {
+			li := getLongInfo(v)
+			if decimalLen(int64(li.hardLinks)) > colWidths[0] {
+				colWidths[0] = decimalLen(int64(li.hardLinks))
+			}
+			if len(li.userName) > colWidths[1] {
+				colWidths[1] = len(li.userName)
+			}
+			if len(li.groupName) > colWidths[2] {
+				colWidths[2] = len(li.groupName)
+			}
+			if decimalLen(v.Size()) > colWidths[3] {
+				colWidths[3] = decimalLen(v.Size())
+			}
+		}
+	} else {
+		cols = width / (padding + smallestWord)
+		colWidths = make([]int, cols)
+		A:
+		for cols > 1 {
+			colWidths = colWidths[:cols]
+			for i := range colWidths {
+				colWidths[i] = 0
+			}
+			pos := (cols - 1) * padding
+			for i, v := range selected {
+				p := i % cols
+				if len(v.path) > colWidths[p] {
+					pos += len(v.path) - colWidths[p]
+					if pos >= width {
+						cols--
+						continue A
+					}
+					colWidths[p] = len(v.path)
+				}
+			}
+			break
+		}
+	}
+
+	for i, v := range selected {
+		if longList {
+			li := getLongInfo(v)
+			timeStr := v.ModTime().Format("Jan _2 15:04")
+			linkPad := strings.Repeat(" ", colWidths[0] - decimalLen(int64(li.hardLinks)))
+			userPad := strings.Repeat(" ", colWidths[1] - len(li.userName))
+			groupPad := strings.Repeat(" ", colWidths[2] - len(li.groupName))
+			sizePad := strings.Repeat(" ", colWidths[3] - decimalLen(v.Size()))
+			name := v.path
+			if v.Mode() & os.ModeSymlink != 0 {
+				if l, err  := os.Readlink(v.path); err == nil {
+					name = name + " -> " + l
+				} else {
+					log.Print(err)
+				}
+			}
+			fmt.Printf("%s %s%d %s%s %s%s %s%d %s %s\n", modeString(v.Mode()) , linkPad,
+				li.hardLinks, li.userName, userPad, li.groupName, groupPad, sizePad, v.Size(), timeStr, name)
+		} else {
+			w := colWidths[i % cols]
+			if i % cols == 0 {
+				if i != 0 {
+					fmt.Println()
+				}
+			}
+			fmt.Printf("%s", v.path)
+			fmt.Print(strings.Repeat(" ", (w - len(v.path)) + padding))
+		}
+	}
+	if !longList {
+		fmt.Println()
+	}
+}
+
 func main() {
 	files := list.NewSliceList(&list.StringSlice{Data:os.Args}).(*list.StringSlice)
 	options := list.NewSliceList(&list.StringSlice{}).(*list.StringSlice)
@@ -124,17 +285,6 @@ func main() {
 		files.Data[files.Append()] = "."
 	}
 
-	var showDirEntries bool
-	var showAll bool
-	var showAlmostAll bool
-	var longList bool
-	const (
-		name int = iota
-		modTime int = iota
-		size int = iota
-	)
-	var sortType int = name
-	var reverseSort bool
 	for iter := options.Iterator(0); iter.Next(); {
 		if option := options.Data[iter.Pos()]; !strings.HasPrefix(option, "--") && len(option) > 2 {
 			letters := list.NewSliceList(&list.ByteSlice{Data:[]byte(option[1:])}).(*list.ByteSlice)
@@ -170,7 +320,6 @@ func main() {
 		}
 	}
 
-	var width int
 	if w, _, err := getTermSize(); err == nil {
 		width = w
 	} else {
@@ -178,6 +327,8 @@ func main() {
 	}
 
 	selected := list.NewSliceList(&DisplayEntryList{}).(*DisplayEntryList)
+
+	
 	for iter := files.Iterator(0); iter.Next(); {
 		if fileName := files.Data[iter.Pos()]; showDirEntries {
 			if stat, err := os.Lstat(fileName); err == nil {
@@ -217,104 +368,7 @@ func main() {
 			}
 		}
 
-		slice.Sort(selected.Data, func(i, j int) (v bool) {
-			var same bool
-			if sortType == modTime {
-				v = selected.Data[i].ModTime().Before(selected.Data[j].ModTime())
-				if !v {
-					same = selected.Data[i].ModTime().Equal(selected.Data[j].ModTime())
-				}
-				v = !v
-			} else if sortType == size {
-				d := selected.Data[j].Size() - selected.Data[i].Size()
-				if d > 0 {
-					v = true
-				} else if d == 0 {
-					same = true
-				}
-				v = !v
-			} else {
-				// strcoll?
-				v = strcmpi(selected.Data[i].path, selected.Data[j].path) == -1
-			}
-			if same {
-				v = strcmpi(selected.Data[i].path, selected.Data[j].path) == -1
-			} else if reverseSort {
-				v = !v
-			}
-			return
-		})
-
-		padding := 2
-		smallestWord := 1
-		var cols int
-		var colWidths []int
-
-		if longList {
-			cols = 4
-			colWidths = make([]int, cols)
-			for _, v := range selected.Data {
-				li := getLongInfo(v)
-				if decimalLen(int64(li.hardLinks)) > colWidths[0] {
-					colWidths[0] = decimalLen(int64(li.hardLinks))
-				}
-				if len(li.userName) > colWidths[1] {
-					colWidths[1] = len(li.userName)
-				}
-				if len(li.groupName) > colWidths[2] {
-					colWidths[2] = len(li.groupName)
-				}
-				if decimalLen(v.Size()) > colWidths[3] {
-					colWidths[3] = decimalLen(v.Size())
-				}
-			}
-		} else {
-			cols = width / (padding + smallestWord)
-			colWidths = make([]int, cols)
-			A:
-			for cols > 1 {
-				colWidths = colWidths[:cols]
-				for i := range colWidths {
-					colWidths[i] = 0
-				}
-				pos := (cols - 1) * padding
-				for i, v := range selected.Data {
-					p := i % cols
-					if len(v.path) > colWidths[p] {
-						pos += len(v.path) - colWidths[p]
-						if pos >= width {
-							cols--
-							continue A
-						}
-						colWidths[p] = len(v.path)
-					}
-				}
-				break
-			}
-		}
-
-		for i, v := range selected.Data {
-			if longList {
-				li := getLongInfo(v)
-				timeStr := v.ModTime().Format("Jan _2 15:04")
-				linkPad := strings.Repeat(" ", colWidths[0] - decimalLen(int64(li.hardLinks)))
-				userPad := strings.Repeat(" ", colWidths[1] - len(li.userName))
-				groupPad := strings.Repeat(" ", colWidths[2] - len(li.groupName))
-				sizePad := strings.Repeat(" ", colWidths[3] - decimalLen(v.Size()))
-				fmt.Printf("%s %s %d %s %s %s %s %s %d %s %s\n", v.Mode() &^ os.ModeTemporary &^ os.ModeSticky, linkPad, li.hardLinks, li.userName, userPad, li.groupName, groupPad, sizePad, v.Size(), timeStr, v.path)
-			} else {
-				w := colWidths[i % cols]
-				if i % cols == 0 {
-					if i != 0 {
-						fmt.Println()
-					}
-				}
-				fmt.Printf("%s", v.path)
-				fmt.Print(strings.Repeat(" ", (w - len(v.path)) + padding))
-			}
-		}
-
-		fmt.Println()
+		display(selected.Data)
 		selected.Clear()
 	}
 }
