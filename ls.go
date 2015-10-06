@@ -2,6 +2,7 @@ package main
 
 import (
 	"os"
+	"os/user"
 	"github.com/timob/list"
 	"fmt"
 	"log"
@@ -31,6 +32,49 @@ func getTermSize() (int, int, error) {
 	}
 	return int(dimensions[1]), int(dimensions[0]), nil
 }
+
+func decimalLen(n int64) (i int) {
+	for i = 1; i < 12; i++ {
+		if n / 10 == 0 {
+			break
+		}
+		n = n / 10
+	}
+	return
+}
+
+var userLookupCache = make(map[string]string)
+func userLookUp(id string) (string, error) {
+	if v, ok := userLookupCache[id]; ok {
+		return v, nil
+	} else {
+		u, err := user.LookupId(id)
+		if err == nil {
+			userLookupCache[id] = u.Name
+			return u.Name, nil
+		}
+		return "", err
+	}
+}
+
+type longInfo struct {
+	userName, groupName string
+	hardLinks int
+}
+
+func getLongInfo(info os.FileInfo) *longInfo {
+	stat := info.Sys().(*syscall.Stat_t)
+	userName := fmt.Sprintf("%d", stat.Uid)
+	if u, err := userLookUp(userName); err == nil {
+		userName = u
+	}
+	group := fmt.Sprintf("%d", stat.Gid)
+	if g, err := userLookUp(group); err == nil {
+		group = g
+	}
+	return &longInfo{userName, group, int(stat.Nlink)}
+}
+
 
 func strcmpi(a, b string) int {
 	for i, av := range a {
@@ -203,37 +247,61 @@ func main() {
 
 		padding := 2
 		smallestWord := 1
-		cols := width / (padding + smallestWord)
-		colWidths := make([]int, cols)
+		var cols int
+		var colWidths []int
 
 		if longList {
-			cols = 1
-		}
-
-A:
-		for cols > 1 {
-			colWidths = colWidths[:cols]
-			for i := range colWidths {
-				colWidths[i] = 0
-			}
-			pos := (cols - 1) * padding
-			for i, v := range selected.Data {
-				p := i % cols
-				if len(v.path) > colWidths[p] {
-					pos += len(v.path) - colWidths[p]
-					if pos >= width {
-						cols--
-						continue A
-					}
-					colWidths[p] = len(v.path)
+			cols = 4
+			colWidths = make([]int, cols)
+			for _, v := range selected.Data {
+				li := getLongInfo(v)
+				if decimalLen(int64(li.hardLinks)) > colWidths[0] {
+					colWidths[0] = decimalLen(int64(li.hardLinks))
+				}
+				if len(li.userName) > colWidths[1] {
+					colWidths[1] = len(li.userName)
+				}
+				if len(li.groupName) > colWidths[2] {
+					colWidths[2] = len(li.groupName)
+				}
+				if decimalLen(v.Size()) > colWidths[3] {
+					colWidths[3] = decimalLen(v.Size())
 				}
 			}
-			break
+		} else {
+			cols = width / (padding + smallestWord)
+			colWidths = make([]int, cols)
+			A:
+			for cols > 1 {
+				colWidths = colWidths[:cols]
+				for i := range colWidths {
+					colWidths[i] = 0
+				}
+				pos := (cols - 1) * padding
+				for i, v := range selected.Data {
+					p := i % cols
+					if len(v.path) > colWidths[p] {
+						pos += len(v.path) - colWidths[p]
+						if pos >= width {
+							cols--
+							continue A
+						}
+						colWidths[p] = len(v.path)
+					}
+				}
+				break
+			}
 		}
 
 		for i, v := range selected.Data {
 			if longList {
-				fmt.Printf("%s %d %s %s %d %s %s\n", v.Mode(), 1, "fred", "fred", v.Size(), v.ModTime(), v.Name())
+				li := getLongInfo(v)
+				timeStr := v.ModTime().Format("Jan _2 15:04")
+				linkPad := strings.Repeat(" ", colWidths[0] - decimalLen(int64(li.hardLinks)))
+				userPad := strings.Repeat(" ", colWidths[1] - len(li.userName))
+				groupPad := strings.Repeat(" ", colWidths[2] - len(li.groupName))
+				sizePad := strings.Repeat(" ", colWidths[3] - decimalLen(v.Size()))
+				fmt.Printf("%s %s %d %s %s %s %s %s %d %s %s\n", v.Mode(), linkPad, li.hardLinks, li.userName, userPad, li.groupName, groupPad, sizePad, v.Size(), timeStr, v.path)
 			} else {
 				w := colWidths[i % cols]
 				if i % cols == 0 {
