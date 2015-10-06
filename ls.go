@@ -83,6 +83,7 @@ func main() {
 	var showDirEntries bool
 	var showAll bool
 	var showAlmostAll bool
+	var longList bool
 	const (
 		name int = iota
 		modTime int = iota
@@ -118,6 +119,8 @@ func main() {
 			sortType = size
 		case "-r":
 			reverseSort = true
+		case "-l":
+			longList = true
 		default:
 			log.Fatalf("unkown option %s", options.Data[iter.Pos()])
 		}
@@ -202,6 +205,11 @@ func main() {
 		smallestWord := 1
 		cols := width / (padding + smallestWord)
 		colWidths := make([]int, cols)
+
+		if longList {
+			cols = 1
+		}
+
 A:
 		for cols > 1 {
 			colWidths = colWidths[:cols]
@@ -224,14 +232,18 @@ A:
 		}
 
 		for i, v := range selected.Data {
-			w := colWidths[i % cols]
-			if i % cols == 0 {
-				if i != 0 {
-					fmt.Println()
+			if longList {
+				fmt.Printf("%s %d %s %s %d %s %s\n", v.Mode(), 1, "fred", "fred", v.Size(), v.ModTime(), v.Name())
+			} else {
+				w := colWidths[i % cols]
+				if i % cols == 0 {
+					if i != 0 {
+						fmt.Println()
+					}
 				}
+				fmt.Printf("%s", v.path)
+				fmt.Print(strings.Repeat(" ", (w - len(v.path)) + padding))
 			}
-			fmt.Printf("%s", v.path)
-			fmt.Print(strings.Repeat(" ", (w - len(v.path)) + padding))
 		}
 
 		fmt.Println()
