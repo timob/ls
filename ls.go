@@ -34,7 +34,7 @@ func getTermSize() (int, int, error) {
 
 func strcmpi(a, b string) int {
 	for i, av := range a {
-		if i > len(b) {
+		if i >= len(b) {
 			return 1
 		}
 		if av > 96 && av < 123 {
