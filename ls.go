@@ -194,14 +194,14 @@ func modeString(mode os.FileMode) string {
 		if bitSet {
 			if (i == 2 && mode & os.ModeSetuid != 0) || (i == 5 && mode & os.ModeSetgid != 0) {
 				output[i+1] = 's'
-			} else if (i == 2 || i == 5) && mode & os.ModeSticky != 0 {
+			} else if i == 8 && mode & os.ModeSticky != 0 {
 				output[i+1] = 't'
 			} else {
 				output[i+1] = byte(c)
 			}
 		} else if (i == 2 && mode & os.ModeSetuid != 0) || (i == 5 && mode & os.ModeSetgid != 0) {
 			output[i+1] = 'S'
-		} else if (i == 2 || i == 5) && mode & os.ModeSticky != 0 {
+		} else if i == 8 && mode & os.ModeSticky != 0 {
 			output[i+1] = 'T'
 		}
 	}
