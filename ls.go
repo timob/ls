@@ -38,6 +38,7 @@ const (
 var sortType int = name
 var reverseSort bool
 var humanReadable bool
+var recursiveList bool
 
 var width int
 
@@ -277,7 +278,7 @@ func display(selected []DisplayEntry, root string) {
 		cols = width / (padding + smallestWord)
 		colWidths = make([]int, cols)
 		A:
-		for cols > 1 {
+		for {
 			colWidths = colWidths[:cols]
 			for i := range colWidths {
 				colWidths[i] = 0
@@ -287,8 +288,12 @@ func display(selected []DisplayEntry, root string) {
 				p := i % cols
 				if len(v.path) > colWidths[p] {
 					pos += len(v.path) - colWidths[p]
-					if pos >= width {
+					if pos > width  {
 						cols--
+						if cols == 0 {
+							cols = 1
+							break A
+						}
 						continue A
 					}
 					colWidths[p] = len(v.path)
@@ -336,7 +341,9 @@ func display(selected []DisplayEntry, root string) {
 				}
 			}
 			fmt.Printf("%s", v.path)
-			fmt.Print(strings.Repeat(" ", (w - len(v.path)) + padding))
+			if i % cols != cols -1 {
+				fmt.Print(strings.Repeat(" ", (w - len(v.path)) + padding))
+			}
 		}
 	}
 	if !longList {
@@ -395,6 +402,8 @@ func main() {
 			longList = true
 		case "-h":
 			humanReadable = true
+		case "-R":
+			recursiveList = true
 		default:
 			log.Fatalf("unkown option %s", options.Data[iter.Pos()])
 		}
@@ -432,7 +441,7 @@ func main() {
 		}
 	}
 
-	if selected.Len() > 0 {
+	if selected.Len() > 0 && !recursiveList {
 		display(selected.Data, "")
 	}
 
@@ -440,18 +449,20 @@ func main() {
 	for iter := files.Iterator(0); iter.Next(); {
 		fileName := files.Data[iter.Pos()]
 
-		if selected.Len() > 0 {
-			selected.Clear()
-			fmt.Println()
-			fmt.Printf("%s:\n", fileName)
-		} else if files.Len() > 1 {
-			fmt.Printf("%s:\n", fileName)
+		if !recursiveList {
+			if selected.Len() > 0 {
+				selected.Clear()
+				fmt.Println()
+				fmt.Printf("%s:\n", fileName)
+			} else if files.Len() > 1 {
+				fmt.Printf("%s:\n", fileName)
+			}
 		}
 
 		var total int64 = 0
 		if file, err := os.Open(fileName); err == nil {
 			if fileInfos, err := file.Readdir(0); err == nil {
-				if showAll && !showAlmostAll {
+				if showAll && !showAlmostAll && !recursiveList {
 					if stat, err := os.Stat(fileName); err == nil {
 						selected.Data[selected.Append()] = DisplayEntry{".", stat}
 					} else {
@@ -466,23 +477,40 @@ func main() {
 				for _, v := range fileInfos {
 					if showAll || !strings.HasPrefix(v.Name(), ".") {
 						total += v.Size()
-						selected.Data[selected.Append()] = DisplayEntry{v.Name(), v}
+						if recursiveList {
+							path := path.Clean(fileName + "/" + v.Name())
+							selected.Data[selected.Append()] = DisplayEntry{path, v}
+							if v.IsDir() {
+								files.Data[files.Append()] = path
+							}
+						} else {
+							selected.Data[selected.Append()] = DisplayEntry{v.Name(), v}
+						}
 					}
 				}
 			} else {
 				log.Print(err)
 			}
+			file.Close()
 		} else {
 			log.Print(err)
 		}
 
-		if longList {
+		if longList && !recursiveList {
 			if humanReadable {
 				fmt.Printf("total %s\n", human(total))
 			} else {
 				fmt.Printf("total %d\n", total/1024)
 			}
 		}
-		display(selected.Data, fileName + "/")
+
+		if !recursiveList {
+			display(selected.Data, fileName + "/")
+		}
+	}
+
+	if recursiveList && selected.Len() > 0 {
+		log.Printf("sorting/displaying")
+		display(selected.Data, "")
 	}
 }
