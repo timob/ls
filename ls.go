@@ -76,8 +76,10 @@ func human(n int64) string {
 				tenth := int64(1024 / 10) + 1
 				f = f / lowerSize / tenth
 				// round up
-				if f < 9 {
-					f++
+				f++
+				if f == 10 {
+					w++
+					f = 0
 				}
 			}
 		} else {
