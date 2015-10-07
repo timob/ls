@@ -95,6 +95,8 @@ func human(n int64) string {
 		unit = "M"
 	case 3:
 		unit = "G"
+	case 4:
+		unit = "T"
 	}
 
 	if w > 0 && w < 10 {
