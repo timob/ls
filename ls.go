@@ -11,6 +11,7 @@ import (
 	"unsafe"
 	"path"
 	"github.com/bradfitz/slice"
+	"time"
 )
 
 type DisplayEntry struct {
@@ -22,6 +23,8 @@ type DisplayEntryList struct {
 	Data []DisplayEntry
 	list.Slice
 }
+
+var now = time.Now()
 
 var showDirEntries bool
 var showAll bool
@@ -161,7 +164,7 @@ func display(selected []DisplayEntry, root string) {
 		if sortType == modTime {
 			v = selected[i].ModTime().Before(selected[j].ModTime())
 			if !v {
-				same = selected[i].ModTime().Equal(selected[j].ModTime())
+				same = selected[i].ModTime().Equal(selected[	j].ModTime())
 			}
 			v = !v
 		} else if sortType == size {
@@ -237,7 +240,12 @@ func display(selected []DisplayEntry, root string) {
 	for i, v := range selected {
 		if longList {
 			li := getLongInfo(v)
-			timeStr := v.ModTime().Format("Jan _2 15:04")
+			var timeStr string
+			if now.Year() == v.ModTime().Year() {
+				timeStr = v.ModTime().Format("Jan _2 15:04")
+			} else {
+				timeStr = v.ModTime().Format("Jan _2  2006")
+			}
 			linkPad := strings.Repeat(" ", colWidths[0] - decimalLen(int64(li.hardLinks)))
 			userPad := strings.Repeat(" ", colWidths[1] - len(li.userName))
 			groupPad := strings.Repeat(" ", colWidths[2] - len(li.groupName))
@@ -366,6 +374,8 @@ func main() {
 			selected.Clear()
 			fmt.Println()
 			fmt.Printf("%s:\n", fileName)
+		} else if files.Len() > 1 {
+			fmt.Printf("%s:\n", fileName)
 		}
 
 		var total int64 = 0
@@ -377,7 +387,7 @@ func main() {
 					} else {
 						log.Print(err)
 					}
-					if parent, err := os.Stat(path.Dir(fileName)); err == nil {
+					if parent, err := os.Stat(path.Clean(fileName + "/..")); err == nil {
 						selected.Data[selected.Append()] = DisplayEntry{"..", parent}
 					} else {
 						log.Print(err)
@@ -396,7 +406,9 @@ func main() {
 			log.Print(err)
 		}
 
-		fmt.Printf("total %d\n", total/1024)
+		if longList {
+			fmt.Printf("total %d\n", total/1024)
+		}
 		display(selected.Data, fileName + "/")
 	}
 }
