@@ -37,6 +37,7 @@ const (
 )
 var sortType int = name
 var reverseSort bool
+var humanReadable bool
 
 var width int
 
@@ -49,6 +50,56 @@ func getTermSize() (int, int, error) {
 		return -1, -1, err
 	}
 	return int(dimensions[1]), int(dimensions[0]), nil
+}
+
+
+func human(n int64) string {
+	var i int64
+	var w = n
+	var uSize int64 = 1
+	for i = 0; i < 12; i++ {
+		if w / 1024 == 0 {
+			break
+		}
+		w = w / 1024
+		uSize *= 1024
+	}
+
+	var f int64
+	var unit string
+	f = (n - w * uSize)
+	if f != 0 && i > 0{
+		if w < 10 {
+			if f != 0 {
+				lowerSize := uSize / 1024
+				// magic plus one here (seems to be what GNU ls does)
+				tenth := int64(1024 / 10) + 1
+				f = f / lowerSize / tenth
+				// round up
+				if f < 9 {
+					f++
+				}
+			}
+		} else {
+			// round up
+			w++
+		}
+	}
+
+	switch i {
+	case 1:
+		unit = "K"
+	case 2:
+		unit = "M"
+	case 3:
+		unit = "G"
+	}
+
+	if w > 0 && w < 10 {
+		return fmt.Sprintf("%d.%d%s", w, f, unit)
+	} else {
+		return fmt.Sprintf("%d%s", w, unit)
+	}
 }
 
 func decimalLen(n int64) (i int) {
@@ -208,8 +259,14 @@ func display(selected []DisplayEntry, root string) {
 			if len(li.groupName) > colWidths[2] {
 				colWidths[2] = len(li.groupName)
 			}
-			if decimalLen(v.Size()) > colWidths[3] {
-				colWidths[3] = decimalLen(v.Size())
+			if humanReadable {
+				if len(human(v.Size())) > colWidths[3] {
+					colWidths[3] = len(human(v.Size()))
+				}
+			} else {
+				if decimalLen(v.Size()) > colWidths[3] {
+					colWidths[3] = decimalLen(v.Size())
+				}
 			}
 		}
 	} else {
@@ -249,7 +306,6 @@ func display(selected []DisplayEntry, root string) {
 			linkPad := strings.Repeat(" ", colWidths[0] - decimalLen(int64(li.hardLinks)))
 			userPad := strings.Repeat(" ", colWidths[1] - len(li.userName))
 			groupPad := strings.Repeat(" ", colWidths[2] - len(li.groupName))
-			sizePad := strings.Repeat(" ", colWidths[3] - decimalLen(v.Size()))
 			name := v.path
 			if v.Mode() & os.ModeSymlink != 0 {
 				if l, err  := os.Readlink(root + v.path); err == nil {
@@ -258,8 +314,16 @@ func display(selected []DisplayEntry, root string) {
 					log.Print(err)
 				}
 			}
-			fmt.Printf("%s %s%d %s%s %s%s %s%d %s %s\n", modeString(v.Mode()) , linkPad,
-				li.hardLinks, li.userName, userPad, li.groupName, groupPad, sizePad, v.Size(), timeStr, name)
+			var sizeStr string
+			if humanReadable {
+				sizeStr = human(v.Size())
+			} else {
+				sizeStr = fmt.Sprintf("%d", v.Size())
+			}
+			sizePad := strings.Repeat(" ", colWidths[3] - len(sizeStr))
+
+			fmt.Printf("%s %s%d %s%s %s%s %s%s %s %s\n", modeString(v.Mode()) , linkPad,
+				li.hardLinks, li.userName, userPad, li.groupName, groupPad, sizePad, sizeStr, timeStr, name)
 		} else {
 			w := colWidths[i % cols]
 			if i % cols == 0 {
@@ -325,6 +389,8 @@ func main() {
 			reverseSort = true
 		case "-l":
 			longList = true
+		case "-h":
+			humanReadable = true
 		default:
 			log.Fatalf("unkown option %s", options.Data[iter.Pos()])
 		}
@@ -407,7 +473,11 @@ func main() {
 		}
 
 		if longList {
-			fmt.Printf("total %d\n", total/1024)
+			if humanReadable {
+				fmt.Printf("total %s\n", human(total))
+			} else {
+				fmt.Printf("total %d\n", total/1024)
+			}
 		}
 		display(selected.Data, fileName + "/")
 	}
