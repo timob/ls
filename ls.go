@@ -39,6 +39,7 @@ var sortType int = name
 var reverseSort bool
 var humanReadable bool
 var recursiveList bool
+var onlyHidden bool
 
 var width int
 
@@ -404,6 +405,8 @@ func main() {
 			humanReadable = true
 		case "-R":
 			recursiveList = true
+		case "-O":
+			onlyHidden = true
 		default:
 			log.Fatalf("unkown option %s", options.Data[iter.Pos()])
 		}
@@ -462,7 +465,7 @@ func main() {
 		var total int64 = 0
 		if file, err := os.Open(fileName); err == nil {
 			if fileInfos, err := file.Readdir(0); err == nil {
-				if showAll && !showAlmostAll && !recursiveList {
+				if showAll && !showAlmostAll && !recursiveList && !onlyHidden {
 					if stat, err := os.Stat(fileName); err == nil {
 						selected.Data[selected.Append()] = DisplayEntry{".", stat}
 					} else {
@@ -475,7 +478,8 @@ func main() {
 					}
 				}
 				for _, v := range fileInfos {
-					if showAll || !strings.HasPrefix(v.Name(), ".") {
+					isHidden := strings.HasPrefix(v.Name(), ".")
+					if !onlyHidden && (showAll || !isHidden) || onlyHidden && isHidden {
 						total += v.Size()
 						if recursiveList {
 							path := path.Clean(fileName + "/" + v.Name())
