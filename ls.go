@@ -109,7 +109,7 @@ func human(n int64) string {
 }
 
 func decimalLen(n int64) (i int) {
-	for i = 1; i < 12; i++ {
+	for i = 1; i < 24; i++ {
 		if n / 10 == 0 {
 			break
 		}
@@ -330,6 +330,7 @@ func display(selected []DisplayEntry, root string) {
 			} else {
 				sizeStr = fmt.Sprintf("%d", v.Size())
 			}
+
 			sizePad := strings.Repeat(" ", colWidths[3] - len(sizeStr))
 
 			fmt.Printf("%s %s%d %s%s %s%s %s%s %s %s\n", modeString(v.Mode()) , linkPad,
