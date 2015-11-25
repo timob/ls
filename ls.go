@@ -1,16 +1,15 @@
 package main
 
 import (
+	"fmt"
+	"github.com/bradfitz/slice"
+	"github.com/timob/list"
+	. "github.com/timob/ls/lib"
+	"log"
 	"os"
 	"os/user"
-	"github.com/timob/list"
-	"fmt"
-	"log"
-	"strings"
-	"syscall"
-	"unsafe"
 	"path"
-	"github.com/bradfitz/slice"
+	"strings"
 	"time"
 )
 
@@ -30,11 +29,13 @@ var showDirEntries bool
 var showAll bool
 var showAlmostAll bool
 var longList bool
+
 const (
-	name int = iota
+	name    int = iota
 	modTime int = iota
-	size int = iota
+	size    int = iota
 )
+
 var sortType int = name
 var reverseSort bool
 var humanReadable bool
@@ -43,23 +44,12 @@ var onlyHidden bool
 var width int
 var oneColumn bool
 
-func getTermSize() (int, int, error) {
-	var dimensions [4]uint16
-
-	fd := os.Stdout.Fd()
-	if _, _, err := syscall.Syscall6(syscall.SYS_IOCTL, uintptr(fd), uintptr(syscall.TIOCGWINSZ), uintptr(unsafe.Pointer(&dimensions)), 0, 0, 0); err != 0 {
-		return -1, -1, err
-	}
-	return int(dimensions[1]), int(dimensions[0]), nil
-}
-
-
 func human(n int64) string {
 	var i int64
 	var w = n
 	var uSize int64 = 1
 	for i = 0; i < 12; i++ {
-		if w / 1024 == 0 {
+		if w/1024 == 0 {
 			break
 		}
 		w = w / 1024
@@ -68,13 +58,13 @@ func human(n int64) string {
 
 	var f int64
 	var unit string
-	f = (n - w * uSize)
-	if f != 0 && i > 0{
+	f = (n - w*uSize)
+	if f != 0 && i > 0 {
 		if w < 10 {
 			if f != 0 {
 				lowerSize := uSize / 1024
 				// magic plus one here (seems to be what GNU ls does)
-				tenth := int64(1024 / 10) + 1
+				tenth := int64(1024/10) + 1
 				f = f / lowerSize / tenth
 				// round up
 				f++
@@ -109,7 +99,7 @@ func human(n int64) string {
 
 func decimalLen(n int64) (i int) {
 	for i = 1; i < 24; i++ {
-		if n / 10 == 0 {
+		if n/10 == 0 {
 			break
 		}
 		n = n / 10
@@ -118,6 +108,7 @@ func decimalLen(n int64) (i int) {
 }
 
 var userLookupCache = make(map[string]string)
+
 func userLookUp(id string) (string, error) {
 	if v, ok := userLookupCache[id]; ok {
 		return v, nil
@@ -130,25 +121,6 @@ func userLookUp(id string) (string, error) {
 		return "", err
 	}
 }
-
-type longInfo struct {
-	userName, groupName string
-	hardLinks int
-}
-
-func getLongInfo(info os.FileInfo) *longInfo {
-	stat := info.Sys().(*syscall.Stat_t)
-	userName := fmt.Sprintf("%d", stat.Uid)
-	if u, err := userLookUp(userName); err == nil {
-		userName = u
-	}
-	group := fmt.Sprintf("%d", stat.Gid)
-	if g, err := userLookUp(group); err == nil {
-		group = g
-	}
-	return &longInfo{userName, group, int(stat.Nlink)}
-}
-
 
 func strcmpi(a, b string) int {
 	for i, av := range a {
@@ -181,15 +153,15 @@ func strcmpi(a, b string) int {
 
 func modeString(mode os.FileMode) string {
 	output := []byte(strings.Repeat("-", 10))
-	if mode & os.ModeDir != 0{
+	if mode&os.ModeDir != 0 {
 		output[0] = 'd'
-	} else if mode & os.ModeSymlink != 0{
+	} else if mode&os.ModeSymlink != 0 {
 		output[0] = 'l'
-	} else if mode & os.ModeNamedPipe != 0{
+	} else if mode&os.ModeNamedPipe != 0 {
 		output[0] = 'p'
-	} else if mode & os.ModeSocket != 0{
+	} else if mode&os.ModeSocket != 0 {
 		output[0] = 's'
-	} else if mode & os.ModeCharDevice != 0 && mode & os.ModeDevice != 0 {
+	} else if mode&os.ModeCharDevice != 0 && mode&os.ModeDevice != 0 {
 		output[0] = 'c'
 	}
 
@@ -197,16 +169,16 @@ func modeString(mode os.FileMode) string {
 	for i, c := range rwx {
 		bitSet := mode&(1<<uint(9-1-i)) != 0
 		if bitSet {
-			if (i == 2 && mode & os.ModeSetuid != 0) || (i == 5 && mode & os.ModeSetgid != 0) {
+			if (i == 2 && mode&os.ModeSetuid != 0) || (i == 5 && mode&os.ModeSetgid != 0) {
 				output[i+1] = 's'
-			} else if i == 8 && mode & os.ModeSticky != 0 {
+			} else if i == 8 && mode&os.ModeSticky != 0 {
 				output[i+1] = 't'
 			} else {
 				output[i+1] = byte(c)
 			}
-		} else if (i == 2 && mode & os.ModeSetuid != 0) || (i == 5 && mode & os.ModeSetgid != 0) {
+		} else if (i == 2 && mode&os.ModeSetuid != 0) || (i == 5 && mode&os.ModeSetgid != 0) {
 			output[i+1] = 'S'
-		} else if i == 8 && mode & os.ModeSticky != 0 {
+		} else if i == 8 && mode&os.ModeSticky != 0 {
 			output[i+1] = 'T'
 		}
 	}
@@ -220,7 +192,7 @@ func display(selected []DisplayEntry, root string) {
 		if sortType == modTime {
 			v = selected[i].ModTime().Before(selected[j].ModTime())
 			if !v {
-				same = selected[i].ModTime().Equal(selected[	j].ModTime())
+				same = selected[i].ModTime().Equal(selected[j].ModTime())
 			}
 			v = !v
 		} else if sortType == size {
@@ -254,15 +226,15 @@ func display(selected []DisplayEntry, root string) {
 		cols = 4
 		colWidths = make([]int, cols)
 		for _, v := range selected {
-			li := getLongInfo(v)
-			if decimalLen(int64(li.hardLinks)) > colWidths[0] {
-				colWidths[0] = decimalLen(int64(li.hardLinks))
+			li := GetLongInfo(v)
+			if decimalLen(int64(li.HardLinks)) > colWidths[0] {
+				colWidths[0] = decimalLen(int64(li.HardLinks))
 			}
-			if len(li.userName) > colWidths[1] {
-				colWidths[1] = len(li.userName)
+			if len(li.UserName) > colWidths[1] {
+				colWidths[1] = len(li.UserName)
 			}
-			if len(li.groupName) > colWidths[2] {
-				colWidths[2] = len(li.groupName)
+			if len(li.GroupName) > colWidths[2] {
+				colWidths[2] = len(li.GroupName)
 			}
 			if humanReadable {
 				if len(human(v.Size())) > colWidths[3] {
@@ -281,7 +253,7 @@ func display(selected []DisplayEntry, root string) {
 			cols = width / (padding + smallestWord)
 		}
 		colWidths = make([]int, cols)
-		A:
+	A:
 		for {
 			colWidths = colWidths[:cols]
 			for i := range colWidths {
@@ -292,7 +264,7 @@ func display(selected []DisplayEntry, root string) {
 				p := i % cols
 				if len(v.path) > colWidths[p] {
 					pos += len(v.path) - colWidths[p]
-					if pos > width  {
+					if pos > width {
 						cols--
 						if cols == 0 {
 							cols = 1
@@ -309,19 +281,19 @@ func display(selected []DisplayEntry, root string) {
 
 	for i, v := range selected {
 		if longList {
-			li := getLongInfo(v)
+			li := GetLongInfo(v)
 			var timeStr string
 			if now.Year() == v.ModTime().Year() {
 				timeStr = v.ModTime().Format("Jan _2 15:04")
 			} else {
 				timeStr = v.ModTime().Format("Jan _2  2006")
 			}
-			linkPad := strings.Repeat(" ", colWidths[0] - decimalLen(int64(li.hardLinks)))
-			userPad := strings.Repeat(" ", colWidths[1] - len(li.userName))
-			groupPad := strings.Repeat(" ", colWidths[2] - len(li.groupName))
+			linkPad := strings.Repeat(" ", colWidths[0]-decimalLen(int64(li.HardLinks)))
+			userPad := strings.Repeat(" ", colWidths[1]-len(li.UserName))
+			groupPad := strings.Repeat(" ", colWidths[2]-len(li.GroupName))
 			name := v.path
-			if v.Mode() & os.ModeSymlink != 0 {
-				if l, err  := os.Readlink(root + v.path); err == nil {
+			if v.Mode()&os.ModeSymlink != 0 {
+				if l, err := os.Readlink(root + v.path); err == nil {
 					name = name + " -> " + l
 				} else {
 					log.Print(err)
@@ -334,20 +306,20 @@ func display(selected []DisplayEntry, root string) {
 				sizeStr = fmt.Sprintf("%d", v.Size())
 			}
 
-			sizePad := strings.Repeat(" ", colWidths[3] - len(sizeStr))
+			sizePad := strings.Repeat(" ", colWidths[3]-len(sizeStr))
 
-			fmt.Printf("%s %s%d %s%s %s%s %s%s %s %s\n", modeString(v.Mode()) , linkPad,
-				li.hardLinks, li.userName, userPad, li.groupName, groupPad, sizePad, sizeStr, timeStr, name)
+			fmt.Printf("%s %s%d %s%s %s%s %s%s %s %s\n", modeString(v.Mode()), linkPad,
+				li.HardLinks, li.UserName, userPad, li.GroupName, groupPad, sizePad, sizeStr, timeStr, name)
 		} else {
-			w := colWidths[i % cols]
-			if i % cols == 0 {
+			w := colWidths[i%cols]
+			if i%cols == 0 {
 				if i != 0 {
 					fmt.Println()
 				}
 			}
 			fmt.Printf("%s", v.path)
-			if i % cols != cols -1 {
-				fmt.Print(strings.Repeat(" ", (w - len(v.path)) + padding))
+			if i%cols != cols-1 {
+				fmt.Print(strings.Repeat(" ", (w-len(v.path))+padding))
 			}
 		}
 	}
@@ -357,7 +329,7 @@ func display(selected []DisplayEntry, root string) {
 }
 
 func main() {
-	files := list.NewSliceList(&list.StringSlice{Data:os.Args}).(*list.StringSlice)
+	files := list.NewSliceList(&list.StringSlice{Data: os.Args}).(*list.StringSlice)
 	options := list.NewSliceList(&list.StringSlice{}).(*list.StringSlice)
 
 	files.Remove(0)
@@ -377,7 +349,7 @@ func main() {
 
 	for iter := options.Iterator(0); iter.Next(); {
 		if option := options.Data[iter.Pos()]; !strings.HasPrefix(option, "--") && len(option) > 2 {
-			letters := list.NewSliceList(&list.ByteSlice{Data:[]byte(option[1:])}).(*list.ByteSlice)
+			letters := list.NewSliceList(&list.ByteSlice{Data: []byte(option[1:])}).(*list.ByteSlice)
 			var removed bool
 			for iter2 := letters.Iterator(letters.Len() - 1); iter2.Prev(); {
 				options.Data[iter.Insert()] = "-" + string(letters.Data[iter2.Pos()])
@@ -389,8 +361,7 @@ func main() {
 			}
 		}
 
-		var helpStr =
-		`Usage: ls [OPTION]... [FILE]...
+		var helpStr = `Usage: ls [OPTION]... [FILE]...
 		List information about the FILEs (the current directory by default).
 		Sort entries alphabetically unless a sort option is given.
 			-a					do not ignore entries starting with .
@@ -438,7 +409,7 @@ func main() {
 		}
 	}
 
-	if w, _, err := getTermSize(); err == nil {
+	if w, _, err := GetTermSize(); err == nil {
 		width = w
 	} else {
 		width = 80
@@ -535,7 +506,7 @@ func main() {
 		}
 
 		if !recursiveList && selected.Len() > 0 {
-			display(selected.Data, fileName + "/")
+			display(selected.Data, fileName+"/")
 		}
 	}
 
