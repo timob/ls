@@ -3,8 +3,8 @@ package main
 import (
 	"fmt"
 	"github.com/bradfitz/slice"
-	"github.com/timob/list"
 	. "github.com/timob/ls/lib"
+	"github.com/timob/sindex"
 	"log"
 	"os"
 	"os/user"
@@ -20,7 +20,7 @@ type DisplayEntry struct {
 
 type DisplayEntryList struct {
 	Data []DisplayEntry
-	list.Slice
+	sindex.List
 }
 
 var now = time.Now()
@@ -329,8 +329,8 @@ func display(selected []DisplayEntry, root string) {
 }
 
 func main() {
-	files := list.NewSliceList(&list.StringSlice{Data: os.Args}).(*list.StringSlice)
-	options := list.NewSliceList(&list.StringSlice{}).(*list.StringSlice)
+	files := sindex.NewList(&sindex.StringList{Data: os.Args}).(*sindex.StringList)
+	options := sindex.NewList(&sindex.StringList{}).(*sindex.StringList)
 
 	files.Remove(0)
 	for iter := files.Iterator(0); iter.Next(); {
@@ -349,7 +349,7 @@ func main() {
 
 	for iter := options.Iterator(0); iter.Next(); {
 		if option := options.Data[iter.Pos()]; !strings.HasPrefix(option, "--") && len(option) > 2 {
-			letters := list.NewSliceList(&list.ByteSlice{Data: []byte(option[1:])}).(*list.ByteSlice)
+			letters := sindex.NewList(&sindex.ByteList{Data: []byte(option[1:])}).(*sindex.ByteList)
 			var removed bool
 			for iter2 := letters.Iterator(letters.Len() - 1); iter2.Prev(); {
 				options.Data[iter.Insert()] = "-" + string(letters.Data[iter2.Pos()])
@@ -415,7 +415,7 @@ func main() {
 		width = 80
 	}
 
-	selected := list.NewSliceList(&DisplayEntryList{}).(*DisplayEntryList)
+	selected := sindex.NewList(&DisplayEntryList{}).(*DisplayEntryList)
 
 	for iter := files.Iterator(0); iter.Next(); {
 		fileName := files.Data[iter.Pos()]
