@@ -7,7 +7,6 @@ import (
 	"github.com/timob/sindex"
 	"log"
 	"os"
-	"os/user"
 	"path"
 	"strings"
 	"time"
@@ -105,21 +104,6 @@ func decimalLen(n int64) (i int) {
 		n = n / 10
 	}
 	return
-}
-
-var userLookupCache = make(map[string]string)
-
-func userLookUp(id string) (string, error) {
-	if v, ok := userLookupCache[id]; ok {
-		return v, nil
-	} else {
-		u, err := user.LookupId(id)
-		if err == nil {
-			userLookupCache[id] = u.Name
-			return u.Name, nil
-		}
-		return "", err
-	}
 }
 
 func strcmpi(a, b string) int {

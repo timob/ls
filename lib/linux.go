@@ -5,9 +5,30 @@ package ls
 import (
 	"fmt"
 	"os"
+	"os/user"
 	"syscall"
 	"unsafe"
 )
+
+var userLookupCache = make(map[string]string)
+
+func userLookUp(id string) (string, error) {
+	if v, ok := userLookupCache[id]; ok {
+		return v, nil
+	} else {
+		u, err := user.LookupId(id)
+		if err == nil {
+			userLookupCache[id] = u.Name
+			return u.Name, nil
+		}
+		return "", err
+	}
+}
+
+type LongInfo struct {
+	UserName, GroupName string
+	HardLinks           int
+}
 
 func GetTermSize() (int, int, error) {
 	var dimensions [4]uint16
@@ -19,7 +40,7 @@ func GetTermSize() (int, int, error) {
 	return int(dimensions[1]), int(dimensions[0]), nil
 }
 
-func GetLongInfo(info os.FileInfo) *longInfo {
+func GetLongInfo(info os.FileInfo) *LongInfo {
 	stat := info.Sys().(*syscall.Stat_t)
 	userName := fmt.Sprintf("%d", stat.Uid)
 	if u, err := userLookUp(userName); err == nil {
@@ -29,5 +50,5 @@ func GetLongInfo(info os.FileInfo) *longInfo {
 	if g, err := userLookUp(group); err == nil {
 		group = g
 	}
-	return &longInfo{userName, group, int(stat.Nlink)}
+	return &LongInfo{userName, group, int(stat.Nlink)}
 }
