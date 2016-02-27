@@ -40,6 +40,14 @@ func GetTermSize() (int, int, error) {
 	return int(dimensions[1]), int(dimensions[0]), nil
 }
 
+const ioctlReadTermios = 0x5401
+
+func IsTerminal(fd int) bool {
+	var termios syscall.Termios
+	_, _, err := syscall.Syscall6(syscall.SYS_IOCTL, uintptr(fd), ioctlReadTermios, uintptr(unsafe.Pointer(&termios)), 0, 0, 0)
+	return err == 0
+}
+
 func GetLongInfo(info os.FileInfo) *LongInfo {
 	stat := info.Sys().(*syscall.Stat_t)
 	userName := fmt.Sprintf("%d", stat.Uid)

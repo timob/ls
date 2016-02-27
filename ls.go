@@ -10,6 +10,8 @@ import (
 	"path"
 	"strings"
 	"time"
+	"strconv"
+	ct "github.com/daviddengcn/go-colortext"
 )
 
 type DisplayEntry struct {
@@ -42,6 +44,73 @@ var recursiveList bool
 var onlyHidden bool
 var width int
 var oneColumn bool
+
+type colorDef struct {
+	fg, bg byte
+	bright bool
+}
+
+var fileColors map[string]colorDef
+
+var useColor bool
+
+var colorSet bool
+func setColor(def colorDef) {
+	colorSet = true
+	ct.ChangeColor(ct.Color(def.fg), def.bright, ct.Color(def.bg), false)
+}
+
+func resetColor() {
+	if colorSet {
+		ct.ResetColor()
+		colorSet = false
+	}
+}
+
+func setColorForFile(info os.FileInfo) {
+	mode := info.Mode()
+	var fileType string
+	if mode&os.ModeDir != 0 {
+		if mode&os.ModeSticky != 0 {
+			if mode&(1<<1) != 0 {
+				fileType = "tw"
+			} else {
+				fileType = "st"
+			}
+		} else if mode&(1<<1) != 0 {
+			fileType = "ow"
+		} else {
+			fileType = "di"
+		}
+	} else if mode&os.ModeSymlink != 0 {
+		fileType = "ln"
+	} else if mode&os.ModeNamedPipe != 0 {
+		fileType = "pi"
+	} else if mode&os.ModeSocket != 0 {
+		fileType = "so"
+	} else if mode&os.ModeDevice != 0 {
+		fileType = "bd"
+	} else if mode&os.ModeCharDevice != 0 {
+		fileType = "cd"
+	} else if mode&os.ModeSetuid != 0 {
+		fileType = "su"
+	} else if mode&os.ModeSetgid != 0 {
+		fileType = "sg"
+	} else if mode&(1<<6 | 1<<3 | 1) != 0 {
+		fileType = "ex"
+	} else {
+		name := info.Name()
+		if n := strings.LastIndex(name, "."); n != -1 && n != len(name) - 1 {
+			key := "*" + name[n:]
+			if _, ok := fileColors[key]; ok {
+				fileType = key
+			}
+		}
+	}
+	if fileType != "" {
+		setColor(fileColors[fileType])
+	}
+}
 
 func human(n int64) string {
 	var i int64
@@ -264,6 +333,22 @@ func display(selected []DisplayEntry, root string) {
 	}
 
 	for i, v := range selected {
+		var linkTarget string
+		var brokenLink bool
+		var linkInfo os.FileInfo
+		if v.Mode()&os.ModeSymlink != 0 {
+			if l, err := os.Readlink(root + v.path); err == nil {
+				linkTarget = l
+				if i, err := os.Stat(root + v.path); err != nil {
+					brokenLink = true
+				} else {
+					linkInfo = i
+				}
+			} else {
+				log.Print(err)
+			}
+		}
+
 		if longList {
 			li := GetLongInfo(v)
 			var timeStr string
@@ -275,14 +360,6 @@ func display(selected []DisplayEntry, root string) {
 			linkPad := strings.Repeat(" ", colWidths[0]-decimalLen(int64(li.HardLinks)))
 			userPad := strings.Repeat(" ", colWidths[1]-len(li.UserName))
 			groupPad := strings.Repeat(" ", colWidths[2]-len(li.GroupName))
-			name := v.path
-			if v.Mode()&os.ModeSymlink != 0 {
-				if l, err := os.Readlink(root + v.path); err == nil {
-					name = name + " -> " + l
-				} else {
-					log.Print(err)
-				}
-			}
 			var sizeStr string
 			if humanReadable {
 				sizeStr = human(v.Size())
@@ -292,8 +369,35 @@ func display(selected []DisplayEntry, root string) {
 
 			sizePad := strings.Repeat(" ", colWidths[3]-len(sizeStr))
 
-			fmt.Printf("%s %s%d %s%s %s%s %s%s %s %s\n", modeString(v.Mode()), linkPad,
-				li.HardLinks, li.UserName, userPad, li.GroupName, groupPad, sizePad, sizeStr, timeStr, name)
+			if useColor {
+				fmt.Printf("%s %s%d %s%s %s%s %s%s %s ", modeString(v.Mode()), linkPad,
+					li.HardLinks, li.UserName, userPad, li.GroupName, groupPad, sizePad, sizeStr, timeStr)
+				if brokenLink {
+					setColor(fileColors["or"])
+				} else {
+					setColorForFile(v.FileInfo)
+				}
+				fmt.Printf("%s", v.path)
+				resetColor()
+				if linkTarget != "" {
+					fmt.Printf(" -> ")
+					if brokenLink {
+						setColor(fileColors["or"])
+					} else {
+						setColorForFile(linkInfo)
+					}
+					fmt.Printf("%s", linkTarget)
+					resetColor()
+				}
+				fmt.Println()
+			} else {
+				name := v.path
+				if v.Mode()&os.ModeSymlink != 0 {
+					name = name + " -> " + linkTarget
+				}
+				fmt.Printf("%s %s%d %s%s %s%s %s%s %s %s\n", modeString(v.Mode()), linkPad,
+					li.HardLinks, li.UserName, userPad, li.GroupName, groupPad, sizePad, sizeStr, timeStr, name)
+			}
 		} else {
 			w := colWidths[i%cols]
 			if i%cols == 0 {
@@ -301,7 +405,17 @@ func display(selected []DisplayEntry, root string) {
 					fmt.Println()
 				}
 			}
+			if useColor {
+				if brokenLink {
+					setColor(fileColors["or"])
+				} else {
+					setColorForFile(v.FileInfo)
+				}
+			}
 			fmt.Printf("%s", v.path)
+			if useColor {
+				resetColor()
+			}
 			if i%cols != cols-1 {
 				fmt.Print(strings.Repeat(" ", (w-len(v.path))+padding))
 			}
@@ -346,22 +460,25 @@ func main() {
 		}
 
 		var helpStr = `Usage: ls [OPTION]... [FILE]...
-		List information about the FILEs (the current directory by default).
-		Sort entries alphabetically unless a sort option is given.
-			-a					do not ignore entries starting with .
-			-A					do not list implied . and ..
-			-d					list directory entries instead of contents
-			-t					sort by modification time, newest first
-			-S					sort by file size
-			-r					reverse order while sorting
-			-l					use a long listing format
-			-h					with -l, print sizes in human readable format
-			-R					list subdirectories recursively, sorting all files
-			-O					only list entries starting with .
-			-1					list one file per line
-			--help				display this help and exit
-		`
-		switch options.Data[iter.Pos()] {
+List information about the FILEs (the current directory by default).
+Sort entries alphabetically unless a sort option is given.
+	-a					do not ignore entries starting with .
+	-A					do not list implied . and ..
+	-d					list directory entries instead of contents
+	-t					sort by modification time, newest first
+	-S					sort by file size
+	-r					reverse order while sorting
+	-l					use a long listing format
+	-h					with -l, print sizes in human readable format
+	-R					list subdirectories recursively, sorting all files
+	-O					only list entries starting with .
+	-1					list one file per line
+	--color[=WHEN]		colorize the output WHEN defaults to 'always'
+						or can be "never" or "auto".
+	--help				display this help and exit
+`
+		option := options.Data[iter.Pos()]
+		switch option {
 		case "-d":
 			showDirEntries = true
 		case "-a":
@@ -385,11 +502,23 @@ func main() {
 			onlyHidden = true
 		case "-1":
 			oneColumn = true
+		case "--color":
+			fallthrough
+		case "--color=always":
+			useColor = true
+		case "--color=never":
+			useColor = false
+		case "--color=auto":
+			if IsTerminal(1) {
+				useColor = true
+			} else {
+				useColor = false
+			}
 		case "--help":
 			fmt.Print(helpStr)
 			os.Exit(0)
 		default:
-			log.Fatalf("unkown option %s", options.Data[iter.Pos()])
+			log.Fatalf("unkown option %s", option)
 		}
 	}
 
@@ -397,6 +526,57 @@ func main() {
 		width = w
 	} else {
 		width = 80
+	}
+
+	if useColor {
+		colorBytesMap := map[string][]byte{
+			"di": {1,34},
+			"ln": {1,36},
+			"pi": {40, 33},
+			"so": {1, 35},
+			"bd": {40, 33, 1},
+			"cd": {40, 33, 1},
+			"or": {40, 31},
+			"su": {37, 41},
+			"sg": {30, 43},
+			"tw": {30, 42},
+			"ow": {34, 42},
+			"st": {37, 44},
+			"ex": {01, 32},
+		}
+		lsColorsEnv := os.Getenv("LS_COLORS")
+		colorDefs := strings.Split(lsColorsEnv, ":")
+		for _, def := range colorDefs {
+			tokens := strings.Split(def, "=")
+			if len(tokens) != 2 {
+				continue
+			}
+			colors := strings.Split(tokens[1], ";")
+			var colorBytes []byte
+			for _, color := range colors {
+				if n, err := strconv.ParseInt(color, 10, 8); err == nil {
+					colorBytes = append(colorBytes, byte(n))
+				}
+			}
+			colorBytesMap[tokens[0]] = colorBytes
+		}
+		fileColors = make(map[string]colorDef)
+		for k, v := range colorBytesMap {
+			var bright bool
+			var fg, bg int = 0, 0
+			for _, b := range v {
+				if b == 0 {
+					bright = false
+				} else if b == 1 {
+					bright = true
+				} else if b >= 30 && b < 38 {
+					fg = int(b - 30) + 1
+				} else if b >= 40 && b < 48 {
+					bg = int(b - 40) + 1
+				}
+			}
+			fileColors[k] = colorDef{byte(fg), byte(bg), bright}
+		}
 	}
 
 	selected := sindex.NewList(&DisplayEntryList{}).(*DisplayEntryList)

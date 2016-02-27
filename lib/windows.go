@@ -35,3 +35,7 @@ func init() {
 func GetLongInfo(info os.FileInfo) *LongInfo {
 	return &LongInfo{userName, groupName, 1}
 }
+
+func IsTerminal(fd int) bool {
+	return true
+}
