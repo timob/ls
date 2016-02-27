@@ -625,31 +625,35 @@ Sort entries alphabetically unless a sort option is given.
 
 		var total int64 = 0
 		if file, err := os.Open(fileName); err == nil {
-			if fileInfos, err := file.Readdir(0); err == nil {
-				if showAll && !showAlmostAll && !recursiveList && !onlyHidden {
-					if stat, err := os.Stat(fileName); err == nil {
-						selected.Data[selected.Append()] = DisplayEntry{".", stat}
-					} else {
-						log.Print(err)
-					}
-					if parent, err := os.Stat(path.Clean(fileName + "/..")); err == nil {
-						selected.Data[selected.Append()] = DisplayEntry{"..", parent}
-					} else {
-						log.Print(err)
-					}
+			if showAll && !showAlmostAll && !recursiveList && !onlyHidden {
+				if stat, err := os.Stat(fileName); err == nil {
+					selected.Data[selected.Append()] = DisplayEntry{".", stat}
+				} else {
+					log.Print(err)
 				}
-				for _, v := range fileInfos {
-					isHidden := strings.HasPrefix(v.Name(), ".")
+				if parent, err := os.Stat(path.Clean(fileName + "/..")); err == nil {
+					selected.Data[selected.Append()] = DisplayEntry{"..", parent}
+				} else {
+					log.Print(err)
+				}
+			}
+			if names, err := file.Readdirnames(0); err == nil {
+				for _, name := range names {
+					isHidden := strings.HasPrefix(name, ".")
 					if !onlyHidden && (showAll || !isHidden) || onlyHidden && isHidden {
-						total += v.Size()
-						if recursiveList {
-							path := path.Clean(fileName + "/" + v.Name())
-							selected.Data[selected.Append()] = DisplayEntry{path, v}
-							if v.IsDir() {
-								files.Data[files.Append()] = path
+						if v, err := os.Lstat(fileName + "/" + name); err == nil {
+							total += v.Size()
+							if recursiveList {
+								path := path.Clean(fileName + "/" + v.Name())
+								selected.Data[selected.Append()] = DisplayEntry{path, v}
+								if v.IsDir() {
+									files.Data[files.Append()] = path
+								}
+							} else {
+								selected.Data[selected.Append()] = DisplayEntry{v.Name(), v}
 							}
 						} else {
-							selected.Data[selected.Append()] = DisplayEntry{v.Name(), v}
+							log.Print(err)
 						}
 					}
 				}
