@@ -445,6 +445,10 @@ func main() {
 		files.Data[files.Append()] = "."
 	}
 
+	if !IsTerminal(1) {
+		oneColumn = true
+	}
+
 	for iter := options.Iterator(0); iter.Next(); {
 		if option := options.Data[iter.Pos()]; !strings.HasPrefix(option, "--") && len(option) > 2 {
 			letters := sindex.NewList(&sindex.ByteList{Data: []byte(option[1:])}).(*sindex.ByteList)
