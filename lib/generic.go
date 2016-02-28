@@ -1,4 +1,4 @@
-// +build !linux,!windows
+// +build !cgo,!windows,!plan9 android
 
 package ls
 
@@ -18,4 +18,8 @@ func GetTermSize() (int, int, error) {
 
 func GetLongInfo(info os.FileInfo) *LongInfo {
 	return &LongInfo{"unkown", "unkown", 1}
+}
+
+func IsTerminal(fd int) bool {
+	return true
 }
