@@ -38,4 +38,4 @@ This uses the https://github.com/timob/sindex slice indexing library to handle l
 So really a use case for that library. IMHO it makes programming lists using iterators, insert, deleting and appending much easier.
 
 ####Todo
-* Fix file owner user and roup names.
+* Add other GNU ls options
