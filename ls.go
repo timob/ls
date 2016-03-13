@@ -3,15 +3,15 @@ package main
 import (
 	"fmt"
 	"github.com/bradfitz/slice"
+	ct "github.com/daviddengcn/go-colortext"
 	. "github.com/timob/ls/lib"
 	"github.com/timob/sindex"
 	"log"
 	"os"
 	"path"
+	"strconv"
 	"strings"
 	"time"
-	"strconv"
-	ct "github.com/daviddengcn/go-colortext"
 )
 
 type DisplayEntry struct {
@@ -55,6 +55,7 @@ var fileColors map[string]colorDef
 var useColor bool
 
 var colorSet bool
+
 func setColor(def colorDef) {
 	colorSet = true
 	ct.ChangeColor(ct.Color(def.fg), def.bright, ct.Color(def.bg), false)
@@ -96,11 +97,11 @@ func setColorForFile(info os.FileInfo) {
 		fileType = "su"
 	} else if mode&os.ModeSetgid != 0 {
 		fileType = "sg"
-	} else if mode&(1<<6 | 1<<3 | 1) != 0 {
+	} else if mode&(1<<6|1<<3|1) != 0 {
 		fileType = "ex"
 	} else {
 		name := info.Name()
-		if n := strings.LastIndex(name, "."); n != -1 && n != len(name) - 1 {
+		if n := strings.LastIndex(name, "."); n != -1 && n != len(name)-1 {
 			key := "*" + name[n:]
 			if _, ok := fileColors[key]; ok {
 				fileType = key
@@ -427,8 +428,8 @@ func display(selected []DisplayEntry, root string) {
 }
 
 func main() {
-	files := sindex.NewList(&sindex.StringList{Data: os.Args}).(*sindex.StringList)
-	options := sindex.NewList(&sindex.StringList{}).(*sindex.StringList)
+	files := sindex.InitList(&sindex.StringList{Data: os.Args}).(*sindex.StringList)
+	options := sindex.InitList(&sindex.StringList{}).(*sindex.StringList)
 
 	files.Remove(0)
 	for iter := files.Iterator(0); iter.Next(); {
@@ -451,7 +452,7 @@ func main() {
 
 	for iter := options.Iterator(0); iter.Next(); {
 		if option := options.Data[iter.Pos()]; !strings.HasPrefix(option, "--") && len(option) > 2 {
-			letters := sindex.NewList(&sindex.ByteList{Data: []byte(option[1:])}).(*sindex.ByteList)
+			letters := sindex.InitList(&sindex.ByteList{Data: []byte(option[1:])}).(*sindex.ByteList)
 			var removed bool
 			for iter2 := letters.Iterator(letters.Len() - 1); iter2.Prev(); {
 				options.Data[iter.Insert()] = "-" + string(letters.Data[iter2.Pos()])
@@ -534,8 +535,8 @@ Sort entries alphabetically unless a sort option is given.
 
 	if useColor {
 		colorBytesMap := map[string][]byte{
-			"di": {1,34},
-			"ln": {1,36},
+			"di": {1, 34},
+			"ln": {1, 36},
 			"pi": {40, 33},
 			"so": {1, 35},
 			"bd": {40, 33, 1},
@@ -574,16 +575,16 @@ Sort entries alphabetically unless a sort option is given.
 				} else if b == 1 {
 					bright = true
 				} else if b >= 30 && b < 38 {
-					fg = int(b - 30) + 1
+					fg = int(b-30) + 1
 				} else if b >= 40 && b < 48 {
-					bg = int(b - 40) + 1
+					bg = int(b-40) + 1
 				}
 			}
 			fileColors[k] = colorDef{byte(fg), byte(bg), bright}
 		}
 	}
 
-	selected := sindex.NewList(&DisplayEntryList{}).(*DisplayEntryList)
+	selected := sindex.InitList(&DisplayEntryList{}).(*DisplayEntryList)
 
 	for iter := files.Iterator(0); iter.Next(); {
 		fileName := files.Data[iter.Pos()]

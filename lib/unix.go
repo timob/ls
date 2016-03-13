@@ -7,10 +7,10 @@ import (
 	"fmt"
 	"os"
 	"os/user"
-	"syscall"
-	"unsafe"
 	"runtime"
 	"strconv"
+	"syscall"
+	"unsafe"
 )
 
 /*
@@ -57,10 +57,10 @@ func groupNameOSLookup(gid int) (string, error) {
 	// to avoid using gid_t because C.gid_t(uid) for
 	// unknown reasons doesn't work on linux.
 	rv = C.mygetgrgid_r(C.int(gid),
-	&grp,
-	(*C.char)(buf),
-	C.size_t(bufSize),
-	&result)
+		&grp,
+		(*C.char)(buf),
+		C.size_t(bufSize),
+		&result)
 	if rv != 0 {
 		return "", fmt.Errorf("ls: lookup group failed id %d: %s", gid, syscall.Errno(rv))
 	}
@@ -69,7 +69,6 @@ func groupNameOSLookup(gid int) (string, error) {
 	}
 	return C.GoString(grp.gr_name), nil
 }
-
 
 var groupLookupCache = make(map[string]string)
 
