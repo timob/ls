@@ -428,8 +428,8 @@ func display(selected []DisplayEntry, root string) {
 }
 
 func main() {
-	files := sindex.InitList(&sindex.StringList{Data: os.Args}).(*sindex.StringList)
-	options := sindex.InitList(&sindex.StringList{}).(*sindex.StringList)
+	files := sindex.InitListType(&sindex.StringList{Data: os.Args}).(*sindex.StringList)
+	options := sindex.InitListType(&sindex.StringList{}).(*sindex.StringList)
 
 	files.Remove(0)
 	for iter := files.Iterator(0); iter.Next(); {
@@ -452,7 +452,7 @@ func main() {
 
 	for iter := options.Iterator(0); iter.Next(); {
 		if option := options.Data[iter.Pos()]; !strings.HasPrefix(option, "--") && len(option) > 2 {
-			letters := sindex.InitList(&sindex.ByteList{Data: []byte(option[1:])}).(*sindex.ByteList)
+			letters := sindex.InitListType(&sindex.ByteList{Data: []byte(option[1:])}).(*sindex.ByteList)
 			var removed bool
 			for iter2 := letters.Iterator(letters.Len() - 1); iter2.Prev(); {
 				options.Data[iter.Insert()] = "-" + string(letters.Data[iter2.Pos()])
@@ -584,7 +584,7 @@ Sort entries alphabetically unless a sort option is given.
 		}
 	}
 
-	selected := sindex.InitList(&DisplayEntryList{}).(*DisplayEntryList)
+	selected := sindex.InitListType(&DisplayEntryList{}).(*DisplayEntryList)
 
 	for iter := files.Iterator(0); iter.Next(); {
 		fileName := files.Data[iter.Pos()]

@@ -34,8 +34,9 @@ Sort entries alphabetically unless a sort option is given.
 
 
 ####Why?
-This uses the https://github.com/timob/sindex slice indexing library to handle lists of options, file arguments, directory lists.
-So really a use case for that library. IMHO it makes programming lists using iterators, insert, deleting and appending much easier.
+This uses the SIndex https://github.com/timob/sindex slice indexing library to handle lists of options, file arguments, directory
+lists. So really a use case for that library. IMHO it makes programming lists using iterators, insert, deleting and appending much
+easier.
 
 ####Todo
 * Add other GNU ls options
