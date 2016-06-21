@@ -98,7 +98,7 @@ func userLookUp(id string) (string, error) {
 		u, err := user.LookupId(id)
 		if err == nil {
 			userLookupCache[id] = u.Username
-			return u.Name, nil
+			return u.Username, nil
 		}
 		return "", err
 	}
