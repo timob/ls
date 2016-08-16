@@ -428,6 +428,7 @@ func display(selected []DisplayEntry, root string) {
 }
 
 func main() {
+	exit := 0
 	files := sindex.InitListType(&sindex.StringList{Data: os.Args}).(*sindex.StringList)
 	options := sindex.InitListType(&sindex.StringList{}).(*sindex.StringList)
 
@@ -593,6 +594,7 @@ Sort entries alphabetically unless a sort option is given.
 				selected.Data[selected.Append()] = DisplayEntry{fileName, stat}
 			} else {
 				log.Print(err)
+				exit = 2
 			}
 			iter.Remove()
 		} else {
@@ -605,6 +607,7 @@ Sort entries alphabetically unless a sort option is given.
 				}
 			} else {
 				log.Print(err)
+				exit = 2
 				iter.Remove()
 			}
 		}
@@ -659,15 +662,18 @@ Sort entries alphabetically unless a sort option is given.
 							}
 						} else {
 							log.Print(err)
+							exit = 1
 						}
 					}
 				}
 			} else {
 				log.Print(err)
+				exit = 1
 			}
 			file.Close()
 		} else {
 			log.Print(err)
+			exit = 1
 		}
 
 		if longList && !recursiveList {
@@ -687,4 +693,5 @@ Sort entries alphabetically unless a sort option is given.
 		log.Printf("sorting/displaying")
 		display(selected.Data, "")
 	}
+	os.Exit(exit)
 }
