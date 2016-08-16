@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"github.com/dustin/go-humanize"
 )
 
 type DisplayEntry struct {
@@ -277,7 +278,7 @@ func display(selected []DisplayEntry, root string) {
 	var colWidths []int
 
 	if longList {
-		cols = 4
+		cols = 5
 		colWidths = make([]int, cols)
 		for _, v := range selected {
 			li := GetLongInfo(v)
@@ -293,6 +294,9 @@ func display(selected []DisplayEntry, root string) {
 			if humanReadable {
 				if len(human(v.Size())) > colWidths[3] {
 					colWidths[3] = len(human(v.Size()))
+				}
+				if len(humanize.Time(v.ModTime())) > colWidths[4] {
+					colWidths[4] = len(humanize.Time(v.ModTime()))
 				}
 			} else {
 				if decimalLen(v.Size()) > colWidths[3] {
@@ -353,7 +357,11 @@ func display(selected []DisplayEntry, root string) {
 		if longList {
 			li := GetLongInfo(v)
 			var timeStr string
-			if now.Year() == v.ModTime().Year() {
+			timePad := ""
+			if humanReadable {
+				timeStr = humanize.Time(v.ModTime())
+				timePad = strings.Repeat(" ", colWidths[4]-len(timeStr))
+			} else if now.Year() == v.ModTime().Year() {
 				timeStr = v.ModTime().Format("Jan _2 15:04")
 			} else {
 				timeStr = v.ModTime().Format("Jan _2  2006")
@@ -371,8 +379,8 @@ func display(selected []DisplayEntry, root string) {
 			sizePad := strings.Repeat(" ", colWidths[3]-len(sizeStr))
 
 			if useColor {
-				fmt.Printf("%s %s%d %s%s %s%s %s%s %s ", modeString(v.Mode()), linkPad,
-					li.HardLinks, li.UserName, userPad, li.GroupName, groupPad, sizePad, sizeStr, timeStr)
+				fmt.Printf("%s %s%d %s%s %s%s %s%s %s%s ", modeString(v.Mode()), linkPad,
+					li.HardLinks, li.UserName, userPad, li.GroupName, groupPad, sizePad, sizeStr, timePad, timeStr)
 				if brokenLink {
 					setColor(fileColors["or"])
 				} else {
@@ -396,8 +404,8 @@ func display(selected []DisplayEntry, root string) {
 				if v.Mode()&os.ModeSymlink != 0 {
 					name = name + " -> " + linkTarget
 				}
-				fmt.Printf("%s %s%d %s%s %s%s %s%s %s %s\n", modeString(v.Mode()), linkPad,
-					li.HardLinks, li.UserName, userPad, li.GroupName, groupPad, sizePad, sizeStr, timeStr, name)
+				fmt.Printf("%s %s%d %s%s %s%s %s%s %s%s %s\n", modeString(v.Mode()), linkPad,
+					li.HardLinks, li.UserName, userPad, li.GroupName, groupPad, sizePad, sizeStr, timePad, timeStr, name)
 			}
 		} else {
 			w := colWidths[i%cols]
