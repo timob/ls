@@ -483,7 +483,7 @@ Sort entries alphabetically unless a sort option is given.
 	-S					sort by file size
 	-r					reverse order while sorting
 	-l					use a long listing format
-	-h					with -l, print sizes in human readable format
+	-h					with -l, print sizes, time stamps in human readable format
 	-R					list subdirectories recursively, sorting all files
 	-O					only list entries starting with .
 	-1					list one file per line
