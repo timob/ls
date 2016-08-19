@@ -45,6 +45,7 @@ var recursiveList bool
 var onlyHidden bool
 var width int
 var oneColumn bool
+var listBylines bool
 
 type colorDef struct {
 	fg, bg byte
@@ -318,8 +319,30 @@ func display(selected []DisplayEntry, root string) {
 				colWidths[i] = 0
 			}
 			pos := (cols - 1) * padding
-			for i, v := range selected {
+			for i := range selected {
 				p := i % cols
+				var j int
+				if listBylines {
+					j = i
+				} else {
+					var per int
+					if len(selected) % cols == 0 {
+						per = len(selected) / cols
+					} else {
+						per = len(selected) / cols + 1
+					}
+					square := per * cols
+					if len(selected) <= square - per {
+						cols--
+						if cols == 0 {
+							cols = 1
+							break A
+						}
+						continue A
+					}
+					j = (per * p) + (i / cols)
+				}
+				v := selected[j]
 				if len(v.path) > colWidths[p] {
 					pos += len(v.path) - colWidths[p]
 					if pos > width {
@@ -337,7 +360,21 @@ func display(selected []DisplayEntry, root string) {
 		}
 	}
 
-	for i, v := range selected {
+	for i := range selected {
+		var j int
+		if listBylines {
+			j = i
+		} else {
+			p := i % cols
+			var per int
+			if len(selected) % cols == 0 {
+				per = len(selected) / cols
+			} else {
+				per = len(selected) / cols + 1
+			}
+			j = (per * p) + (i / cols)
+		}
+		v := selected[j]
 		var linkTarget string
 		var brokenLink bool
 		var linkInfo os.FileInfo
@@ -486,6 +523,7 @@ Sort entries alphabetically unless a sort option is given.
 	-h					with -l, print sizes, time stamps in human readable format
 	-R					list subdirectories recursively, sorting all files
 	-O					only list entries starting with .
+	-x                  list entries by lines instead of by columns
 	-1					list one file per line
 	--color[=WHEN]		colorize the output WHEN defaults to 'always'
 						or can be "never" or "auto".
@@ -514,6 +552,8 @@ Sort entries alphabetically unless a sort option is given.
 			recursiveList = true
 		case "-O":
 			onlyHidden = true
+		case "-x":
+			listBylines = true
 		case "-1":
 			oneColumn = true
 		case "--color":
