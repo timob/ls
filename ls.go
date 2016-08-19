@@ -523,6 +523,7 @@ Sort entries alphabetically unless a sort option is given.
 	-h					with -l, print sizes, time stamps in human readable format
 	-R					list subdirectories recursively, sorting all files
 	-O					only list entries starting with .
+    -C                  list entries by columns
 	-x                  list entries by lines instead of by columns
 	-1					list one file per line
 	--color[=WHEN]		colorize the output WHEN defaults to 'always'
@@ -554,6 +555,8 @@ Sort entries alphabetically unless a sort option is given.
 			onlyHidden = true
 		case "-x":
 			listBylines = true
+		case "-C":
+			listBylines = false
 		case "-1":
 			oneColumn = true
 		case "--color":
