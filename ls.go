@@ -370,12 +370,12 @@ func display(selected []DisplayEntry, root string) {
 	}
 
 	for i := range selected {
-		var j, p int
+		var j int
 		adjCols := cols
+		p := i % cols
 		if listBylines || longList {
 			j = i
 		} else {
-			p = i % cols
 			var per int
 			if len(selected) % cols == 0 {
 				per = len(selected) / cols
