@@ -340,7 +340,16 @@ func display(selected []DisplayEntry, root string) {
 						}
 						continue A
 					}
-					j = (per * p) + (i / cols)
+					// if needed skip empty rows in last column
+					// lastFullRow is index of last row with all cols present
+					lastFullRow := (len(selected) - 1) % per
+					curRow := i / cols
+					if curRow > lastFullRow  {
+						diff := (i - (lastFullRow + 1) * cols)
+						p = diff % (cols - 1)
+						curRow = lastFullRow + 1 + diff / (cols - 1)
+					}
+					j = (per * p) + curRow
 				}
 				v := selected[j]
 				if len(v.path) > colWidths[p] {
@@ -361,18 +370,27 @@ func display(selected []DisplayEntry, root string) {
 	}
 
 	for i := range selected {
-		var j int
-		if listBylines {
+		var j, p int
+		adjCols := cols
+		if listBylines || longList {
 			j = i
 		} else {
-			p := i % cols
+			p = i % cols
 			var per int
 			if len(selected) % cols == 0 {
 				per = len(selected) / cols
 			} else {
 				per = len(selected) / cols + 1
 			}
-			j = (per * p) + (i / cols)
+			lastFullRow := (len(selected) - 1) % per
+			curRow := i / cols
+			if curRow > lastFullRow {
+				adjCols = cols - 1
+				diff := (i - (lastFullRow + 1) * cols)
+				p = diff % (cols - 1)
+				curRow = lastFullRow + 1 + diff / (cols - 1)
+			}
+			j = (per * p) + curRow
 		}
 		v := selected[j]
 		var linkTarget string
@@ -445,8 +463,8 @@ func display(selected []DisplayEntry, root string) {
 					li.HardLinks, li.UserName, userPad, li.GroupName, groupPad, sizePad, sizeStr, timePad, timeStr, name)
 			}
 		} else {
-			w := colWidths[i%cols]
-			if i%cols == 0 {
+			w := colWidths[p]
+			if p == 0 {
 				if i != 0 {
 					fmt.Println()
 				}
@@ -462,7 +480,7 @@ func display(selected []DisplayEntry, root string) {
 			if useColor {
 				resetColor()
 			}
-			if i%cols != cols-1 {
+			if p != adjCols-1 {
 				fmt.Print(strings.Repeat(" ", (w-len(v.path))+padding))
 			}
 		}
