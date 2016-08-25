@@ -19,6 +19,8 @@ import (
 #include <pwd.h>
 #include <grp.h>
 #include <stdlib.h>
+#include <string.h>
+#include <locale.h>
 
 static int mygetgrgid_r(int gid, struct group *grp,
 	char *buf, size_t buflen, struct group **result) {
@@ -125,6 +127,22 @@ func IsTerminal(fd int) bool {
 	var termios syscall.Termios
 	_, _, err := syscall.Syscall6(syscall.SYS_IOCTL, uintptr(fd), ioctlReadTermios, uintptr(unsafe.Pointer(&termios)), 0, 0, 0)
 	return err == 0
+}
+
+var setLocaleCalled bool
+
+func Strcoll(s1, s2 string) int {
+	if setLocaleCalled == false {
+		cstr := C.CString("")
+		C.setlocale(C.LC_ALL, cstr)
+		C.free(unsafe.Pointer(cstr))
+		setLocaleCalled = true
+	}
+	cs1 := C.CString(s1)
+	cs2 := C.CString(s2)
+	defer C.free(unsafe.Pointer(cs1))
+	defer C.free(unsafe.Pointer(cs2))
+	return int(C.strcoll(cs1, cs2))
 }
 
 func GetLongInfo(info os.FileInfo) *LongInfo {

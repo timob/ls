@@ -46,6 +46,7 @@ var onlyHidden bool
 var width int
 var oneColumn bool
 var listBylines bool
+var useCstrcoll bool
 
 type colorDef struct {
 	fg, bg byte
@@ -261,10 +262,18 @@ func display(selected []DisplayEntry, root string) {
 			v = !v
 		} else {
 			// strcoll?
-			v = strcmpi(selected[i].path, selected[j].path) == -1
+			if !useCstrcoll {
+				v = strcmpi(selected[i].path, selected[j].path) == -1
+			} else {
+				v = Strcoll(selected[i].path, selected[j].path) < 0
+			}
 		}
 		if same {
-			v = strcmpi(selected[i].path, selected[j].path) == -1
+			if !useCstrcoll {
+				v = strcmpi(selected[i].path, selected[j].path) == -1
+			} else {
+				v = Strcoll(selected[i].path, selected[j].path) < 0
+			}
 		}
 
 		if reverseSort {
@@ -541,11 +550,13 @@ Sort entries alphabetically unless a sort option is given.
 	-h					with -l, print sizes, time stamps in human readable format
 	-R					list subdirectories recursively, sorting all files
 	-O					only list entries starting with .
-    -C                  list entries by columns
-	-x                  list entries by lines instead of by columns
+	-C					list entries by columns
+	-x					list entries by lines instead of by columns
 	-1					list one file per line
-	--color[=WHEN]		colorize the output WHEN defaults to 'always'
+	--color[=WHEN]				colorize the output WHEN defaults to 'always'
 						or can be "never" or "auto".
+	--use-c-strcoll				use strcoll by making C call from Go when sorting file names
+						instead of native string comparison function
 	--help				display this help and exit
 `
 		option := options.Data[iter.Pos()]
@@ -589,6 +600,12 @@ Sort entries alphabetically unless a sort option is given.
 			} else {
 				useColor = false
 			}
+		case "--use-c-strcoll":
+			fallthrough
+		case "--use-c-strcoll=yes":	
+			useCstrcoll = true
+		case "--use-c-strcoll=no":	
+			useCstrcoll = false
 		case "--help":
 			fmt.Print(helpStr)
 			os.Exit(0)
