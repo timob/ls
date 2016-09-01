@@ -109,6 +109,7 @@ func userLookUp(id string) (string, error) {
 type LongInfo struct {
 	UserName, GroupName string
 	HardLinks           int
+	Ino					uint64	
 }
 
 func GetTermSize() (int, int, error) {
@@ -155,5 +156,5 @@ func GetLongInfo(info os.FileInfo) *LongInfo {
 	if g, err := groupLookup(group); err == nil {
 		group = g
 	}
-	return &LongInfo{userName, group, int(stat.Nlink)}
+	return &LongInfo{userName, group, int(stat.Nlink), stat.Ino}
 }

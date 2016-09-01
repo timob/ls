@@ -11,6 +11,7 @@ import (
 type LongInfo struct {
 	UserName, GroupName string
 	HardLinks           int
+	Ino					uint64	
 }
 
 func GetTermSize() (int, int, error) {
@@ -33,7 +34,7 @@ func init() {
 }
 
 func GetLongInfo(info os.FileInfo) *LongInfo {
-	return &LongInfo{userName, groupName, 1}
+	return &LongInfo{userName, groupName, 1, 1, 1}
 }
 
 func IsTerminal(fd int) bool {

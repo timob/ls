@@ -47,6 +47,7 @@ var width int
 var oneColumn bool
 var listBylines bool
 var useCstrcoll bool
+var showInode bool
 
 type colorDef struct {
 	fg, bg byte
@@ -288,7 +289,7 @@ func display(selected []DisplayEntry, root string) {
 	var colWidths []int
 
 	if longList {
-		cols = 5
+		cols = 6
 		colWidths = make([]int, cols)
 		for _, v := range selected {
 			li := GetLongInfo(v)
@@ -311,6 +312,12 @@ func display(selected []DisplayEntry, root string) {
 			} else {
 				if decimalLen(v.Size()) > colWidths[3] {
 					colWidths[3] = decimalLen(v.Size())
+				}
+			}
+			if showInode {
+				dl := decimalLen(int64(li.Ino))
+				if dl > colWidths[5] {
+					colWidths[5] = dl
 				}
 			}
 		}
@@ -361,8 +368,13 @@ func display(selected []DisplayEntry, root string) {
 					j = (per * p) + curRow
 				}
 				v := selected[j]
-				if len(v.path) > colWidths[p] {
-					pos += len(v.path) - colWidths[p]
+				l := len(v.path)
+				if showInode {
+					li := GetLongInfo(v)
+					l += decimalLen(int64(li.Ino)) + 1
+				}
+				if l > colWidths[p] {
+					pos += l - colWidths[p]
 					if pos > width {
 						cols--
 						if cols == 0 {
@@ -371,7 +383,7 @@ func display(selected []DisplayEntry, root string) {
 						}
 						continue A
 					}
-					colWidths[p] = len(v.path)
+					colWidths[p] = l
 				}
 			}
 			break
@@ -442,8 +454,12 @@ func display(selected []DisplayEntry, root string) {
 
 			sizePad := strings.Repeat(" ", colWidths[3]-len(sizeStr))
 
+			inodeStr := ""
+			if showInode {
+				inodeStr = strings.Repeat(" ", colWidths[5]-decimalLen(int64(li.Ino))) + fmt.Sprintf("%d ", li.Ino)
+			}
 			if useColor {
-				fmt.Printf("%s %s%d %s%s %s%s %s%s %s%s ", modeString(v.Mode()), linkPad,
+				fmt.Printf("%s%s %s%d %s%s %s%s %s%s %s%s ", inodeStr, modeString(v.Mode()), linkPad,
 					li.HardLinks, li.UserName, userPad, li.GroupName, groupPad, sizePad, sizeStr, timePad, timeStr)
 				if brokenLink {
 					setColor(fileColors["or"])
@@ -468,7 +484,7 @@ func display(selected []DisplayEntry, root string) {
 				if v.Mode()&os.ModeSymlink != 0 {
 					name = name + " -> " + linkTarget
 				}
-				fmt.Printf("%s %s%d %s%s %s%s %s%s %s%s %s\n", modeString(v.Mode()), linkPad,
+				fmt.Printf("%s%s %s%d %s%s %s%s %s%s %s%s %s\n", inodeStr, modeString(v.Mode()), linkPad,
 					li.HardLinks, li.UserName, userPad, li.GroupName, groupPad, sizePad, sizeStr, timePad, timeStr, name)
 			}
 		} else {
@@ -485,12 +501,18 @@ func display(selected []DisplayEntry, root string) {
 					setColorForFile(v.FileInfo)
 				}
 			}
+			l := len(v.path)
+			if showInode {
+				li := GetLongInfo(v)
+				l += decimalLen(int64(li.Ino)) + 1
+				fmt.Printf("%d ", li.Ino)
+			}
 			fmt.Printf("%s", v.path)
 			if useColor {
 				resetColor()
 			}
 			if p != adjCols-1 {
-				fmt.Print(strings.Repeat(" ", (w-len(v.path))+padding))
+				fmt.Print(strings.Repeat(" ", (w-l)+padding))
 			}
 		}
 	}
@@ -553,6 +575,7 @@ Sort entries alphabetically unless a sort option is given.
 	-C					list entries by columns
 	-x					list entries by lines instead of by columns
 	-1					list one file per line
+	-i, --inode				print the index number of each file
 	--color[=WHEN]				colorize the output WHEN defaults to 'always'
 						or can be "never" or "auto".
 	--use-c-strcoll				use strcoll by making C call from Go when sorting file names
@@ -588,6 +611,10 @@ Sort entries alphabetically unless a sort option is given.
 			listBylines = false
 		case "-1":
 			oneColumn = true
+		case "--inode":
+			fallthrough
+		case "-i":
+			showInode = true
 		case "--color":
 			fallthrough
 		case "--color=always":
