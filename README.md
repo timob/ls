@@ -8,7 +8,7 @@ LS
 
 ####Description
 List directory Unix utility written in Go features:
-* Works on Windows/Unix
+* Works on Windows/Unix/OSX
 * Same as GNU ls
 * -R has changed, meaning recursively lists all files with relative path names as one group. This means sort options such as by time (-t) can show most recent file modified under a path. (Useful for example to see latest logs in /var/log)
 * -O only list entries starting with.

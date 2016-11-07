@@ -122,11 +122,21 @@ func GetTermSize() (int, int, error) {
 	return int(dimensions[1]), int(dimensions[0]), nil
 }
 
-const ioctlReadTermios = 0x5401
+var ioctlReadTermiosMagic uintptr
+
+func init() {
+	if runtime.GOOS == "darwin" {
+		ioctlReadTermiosMagic = syscall.TIOCGETA
+	} else {
+		ioctlReadTermiosMagic = 0x5401
+	}
+}
+
+const ioctlReadTermios = syscall.TIOCGETA
 
 func IsTerminal(fd int) bool {
 	var termios syscall.Termios
-	_, _, err := syscall.Syscall6(syscall.SYS_IOCTL, uintptr(fd), ioctlReadTermios, uintptr(unsafe.Pointer(&termios)), 0, 0, 0)
+	_, _, err := syscall.Syscall6(syscall.SYS_IOCTL, uintptr(fd), ioctlReadTermiosMagic , uintptr(unsafe.Pointer(&termios)), 0, 0, 0)
 	return err == 0
 }
 
