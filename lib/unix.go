@@ -125,14 +125,10 @@ func GetTermSize() (int, int, error) {
 var ioctlReadTermiosMagic uintptr
 
 func init() {
-	if runtime.GOOS == "darwin" {
-		ioctlReadTermiosMagic = syscall.TIOCGETA
-	} else {
+	if runtime.GOOS != "darwin" {
 		ioctlReadTermiosMagic = 0x5401
 	}
 }
-
-const ioctlReadTermios = syscall.TIOCGETA
 
 func IsTerminal(fd int) bool {
 	var termios syscall.Termios
