@@ -545,6 +545,12 @@ func main() {
 		oneColumn = true
 	}
 
+	if w, _, err := GetTermSize(); err == nil {
+		width = w
+	} else {
+		width = 80
+	}
+
 	for iter := options.Iterator(0); iter.Next(); {
 		if option := options.Data[iter.Pos()]; !strings.HasPrefix(option, "--") && len(option) > 2 {
 			letters := sindex.InitListType(&sindex.ByteList{Data: []byte(option[1:])}).(*sindex.ByteList)
@@ -609,6 +615,7 @@ Sort entries alphabetically unless a sort option is given.
 			listBylines = true
 		case "-C":
 			listBylines = false
+			oneColumn = false
 		case "-1":
 			oneColumn = true
 		case "--inode":
@@ -637,14 +644,15 @@ Sort entries alphabetically unless a sort option is given.
 			fmt.Print(helpStr)
 			os.Exit(0)
 		default:
-			log.Fatalf("unkown option %s", option)
+			if strings.HasPrefix(option, "--width=") {
+				numStr := strings.TrimPrefix(option, "--width=")
+				if _, err := fmt.Sscanf(numStr, "%d", &width); err != nil {
+					log.Fatalf("invalid line width: %s", numStr)
+				}
+			} else {
+				log.Fatalf("unkown option %s", option)
+			}
 		}
-	}
-
-	if w, _, err := GetTermSize(); err == nil {
-		width = w
-	} else {
-		width = 80
 	}
 
 	if useColor {
