@@ -578,11 +578,13 @@ Sort entries alphabetically unless a sort option is given.
 	-l					use a long listing format
 	-h					with -l, print sizes, time stamps in human readable format
 	-R					list subdirectories recursively, sorting all files
+	-P					when used with -R, enables path mode, only file paths are displayed
 	-O					only list entries starting with .
 	-C					list entries by columns
 	-x					list entries by lines instead of by columns
 	-1					list one file per line
 	-i, --inode				print the index number of each file
+	--width=COLS				assume screen width
 	--color[=WHEN]				colorize the output WHEN defaults to 'always'
 						or can be "never" or "auto".
 	--use-c-strcoll				use strcoll by making C call from Go when sorting file names
