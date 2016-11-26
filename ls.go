@@ -48,6 +48,7 @@ var oneColumn bool
 var listBylines bool
 var useCstrcoll bool
 var showInode bool
+var pathMode bool
 
 type colorDef struct {
 	fg, bg byte
@@ -609,6 +610,8 @@ Sort entries alphabetically unless a sort option is given.
 			humanReadable = true
 		case "-R":
 			recursiveList = true
+		case "-P":
+			pathMode = true
 		case "-O":
 			onlyHidden = true
 		case "-x":
@@ -774,7 +777,9 @@ Sort entries alphabetically unless a sort option is given.
 							total += v.Size()
 							if recursiveList {
 								path := path.Clean(fileName + "/" + v.Name())
-								selected.Data[selected.Append()] = DisplayEntry{path, v}
+								if !v.IsDir() || !pathMode {
+									selected.Data[selected.Append()] = DisplayEntry{path, v}
+								}
 								if v.IsDir() {
 									files.Data[files.Append()] = path
 								}
