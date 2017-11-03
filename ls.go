@@ -49,6 +49,7 @@ var listBylines bool
 var useCstrcoll bool
 var showInode bool
 var pathMode bool
+var height int
 
 type colorDef struct {
 	fg, bg byte
@@ -325,6 +326,11 @@ func display(selected []DisplayEntry, root string) {
 	} else {
 		if oneColumn {
 			cols = 1
+		} else if height != 0 {
+			cols = len(selected) / height
+			if len(selected) % height != 0 {
+				cols++
+			}
 		} else {
 			cols = width / (padding + smallestWord)
 		}
@@ -376,7 +382,7 @@ func display(selected []DisplayEntry, root string) {
 				}
 				if l > colWidths[p] {
 					pos += l - colWidths[p]
-					if pos > width {
+					if pos > width && height == 0 {
 						cols--
 						if cols == 0 {
 							cols = 1
@@ -654,6 +660,11 @@ Sort entries alphabetically unless a sort option is given.
 				if _, err := fmt.Sscanf(numStr, "%d", &width); err != nil {
 					log.Fatalf("invalid line width: %s", numStr)
 				}
+			} else if strings.HasPrefix(option, "--height=") {
+				numStr := strings.TrimPrefix(option, "--height=")
+				if _, err := fmt.Sscanf(numStr, "%d", &height); err != nil {
+					log.Fatalf("invalid line width: %s", numStr)
+				}
 			} else {
 				log.Fatalf("unkown option %s", option)
 			}
@@ -818,7 +829,7 @@ Sort entries alphabetically unless a sort option is given.
 	}
 
 	if recursiveList && selected.Len() > 0 {
-		log.Printf("sorting/displaying")
+//		log.Printf("sorting/displaying")
 		display(selected.Data, "")
 	}
 	os.Exit(exit)
