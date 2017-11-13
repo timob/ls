@@ -50,6 +50,7 @@ var useCstrcoll bool
 var showInode bool
 var pathMode bool
 var height int
+var wide bool
 
 type colorDef struct {
 	fg, bg byte
@@ -326,7 +327,7 @@ func display(selected []DisplayEntry, root string) {
 	} else {
 		if oneColumn {
 			cols = 1
-		} else if height != 0 {
+		} else if wide {
 			cols = len(selected) / height
 			if len(selected) % height != 0 {
 				cols++
@@ -382,7 +383,7 @@ func display(selected []DisplayEntry, root string) {
 				}
 				if l > colWidths[p] {
 					pos += l - colWidths[p]
-					if pos > width && height == 0 {
+					if pos > width && !wide {
 						cols--
 						if cols == 0 {
 							cols = 1
@@ -552,10 +553,12 @@ func main() {
 		oneColumn = true
 	}
 
-	if w, _, err := GetTermSize(); err == nil {
+	if w, h, err := GetTermSize(); err == nil {
 		width = w
+		height = h
 	} else {
 		width = 80
+		height = 25
 	}
 
 	for iter := options.Iterator(0); iter.Next(); {
@@ -633,6 +636,8 @@ Sort entries alphabetically unless a sort option is given.
 			fallthrough
 		case "-i":
 			showInode = true
+		case "-W":
+			wide = true
 		case "--color":
 			fallthrough
 		case "--color=always":
