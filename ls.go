@@ -328,8 +328,9 @@ func display(selected []DisplayEntry, root string) {
 		if oneColumn {
 			cols = 1
 		} else if wide {
-			cols = len(selected) / height
-			if len(selected) % height != 0 {
+			colHeight := height - 1
+			cols = len(selected) / colHeight
+			if len(selected) % colHeight != 0 {
 				cols++
 			}
 		} else {

@@ -1,0 +1,4 @@
+make terminal connected output one column by default
+add -x option
+fix user,group display
+

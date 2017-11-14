@@ -115,7 +115,7 @@ type LongInfo struct {
 func GetTermSize() (int, int, error) {
 	var dimensions [4]uint16
 
-	fd := os.Stdout.Fd()
+	fd := os.Stdin.Fd()
 	if _, _, err := syscall.Syscall6(syscall.SYS_IOCTL, uintptr(fd), uintptr(syscall.TIOCGWINSZ), uintptr(unsafe.Pointer(&dimensions)), 0, 0, 0); err != 0 {
 		return -1, -1, err
 	}
