@@ -13,6 +13,8 @@ import (
 	"strings"
 	"time"
 	"github.com/dustin/go-humanize"
+	"os/exec"
+	"io"
 )
 
 type DisplayEntry struct {
@@ -51,6 +53,9 @@ var showInode bool
 var pathMode bool
 var height int
 var wide bool
+var pager bool
+
+var output io.Writer
 
 type colorDef struct {
 	fg, bg byte
@@ -290,6 +295,7 @@ func display(selected []DisplayEntry, root string) {
 	smallestWord := 1
 	var cols int
 	var colWidths []int
+	var wideColHeight int
 
 	if longList {
 		cols = 6
@@ -328,9 +334,9 @@ func display(selected []DisplayEntry, root string) {
 		if oneColumn {
 			cols = 1
 		} else if wide {
-			colHeight := height - 1
-			cols = len(selected) / colHeight
-			if len(selected) % colHeight != 0 {
+			wideColHeight = height - 2
+			cols = len(selected) / wideColHeight
+			if len(selected) % wideColHeight != 0 {
 				cols++
 			}
 		} else {
@@ -351,7 +357,9 @@ func display(selected []DisplayEntry, root string) {
 					j = i
 				} else {
 					var per int
-					if len(selected) % cols == 0 {
+					if wide {
+						per = wideColHeight
+					} else if len(selected) % cols == 0 {
 						per = len(selected) / cols
 					} else {
 						per = len(selected) / cols + 1
@@ -407,7 +415,9 @@ func display(selected []DisplayEntry, root string) {
 			j = i
 		} else {
 			var per int
-			if len(selected) % cols == 0 {
+			if wide  {
+				per = wideColHeight
+			} else if len(selected) % cols == 0 {
 				per = len(selected) / cols
 			} else {
 				per = len(selected) / cols + 1
@@ -468,39 +478,39 @@ func display(selected []DisplayEntry, root string) {
 				inodeStr = strings.Repeat(" ", colWidths[5]-decimalLen(int64(li.Ino))) + fmt.Sprintf("%d ", li.Ino)
 			}
 			if useColor {
-				fmt.Printf("%s%s %s%d %s%s %s%s %s%s %s%s ", inodeStr, modeString(v.Mode()), linkPad,
+				fmt.Fprintf(output, "%s%s %s%d %s%s %s%s %s%s %s%s ", inodeStr, modeString(v.Mode()), linkPad,
 					li.HardLinks, li.UserName, userPad, li.GroupName, groupPad, sizePad, sizeStr, timePad, timeStr)
 				if brokenLink {
 					setColor(fileColors["or"])
 				} else {
 					setColorForFile(v.FileInfo)
 				}
-				fmt.Printf("%s", v.path)
+				fmt.Fprintf(output, "%s", v.path)
 				resetColor()
 				if linkTarget != "" {
-					fmt.Printf(" -> ")
+					fmt.Fprintf(output, " -> ")
 					if brokenLink {
 						setColor(fileColors["or"])
 					} else {
 						setColorForFile(linkInfo)
 					}
-					fmt.Printf("%s", linkTarget)
+					fmt.Fprintf(output, "%s", linkTarget)
 					resetColor()
 				}
-				fmt.Println()
+				fmt.Fprintln(output)
 			} else {
 				name := v.path
 				if v.Mode()&os.ModeSymlink != 0 {
 					name = name + " -> " + linkTarget
 				}
-				fmt.Printf("%s%s %s%d %s%s %s%s %s%s %s%s %s\n", inodeStr, modeString(v.Mode()), linkPad,
+				fmt.Fprintf(output, "%s%s %s%d %s%s %s%s %s%s %s%s %s\n", inodeStr, modeString(v.Mode()), linkPad,
 					li.HardLinks, li.UserName, userPad, li.GroupName, groupPad, sizePad, sizeStr, timePad, timeStr, name)
 			}
 		} else {
 			w := colWidths[p]
 			if p == 0 {
 				if i != 0 {
-					fmt.Println()
+					fmt.Fprintln(output)
 				}
 			}
 			if useColor {
@@ -514,19 +524,19 @@ func display(selected []DisplayEntry, root string) {
 			if showInode {
 				li := GetLongInfo(v)
 				l += decimalLen(int64(li.Ino)) + 1
-				fmt.Printf("%d ", li.Ino)
+				fmt.Fprintf(output, "%d ", li.Ino)
 			}
-			fmt.Printf("%s", v.path)
+			fmt.Fprintf(output, "%s", v.path)
 			if useColor {
 				resetColor()
 			}
 			if p != adjCols-1 {
-				fmt.Print(strings.Repeat(" ", (w-l)+padding))
+				fmt.Fprint(output, strings.Repeat(" ", (w-l)+padding))
 			}
 		}
 	}
 	if !longList {
-		fmt.Println()
+		fmt.Fprintln(output)
 	}
 }
 
@@ -655,8 +665,10 @@ Sort entries alphabetically unless a sort option is given.
 			fallthrough
 		case "--use-c-strcoll=yes":	
 			useCstrcoll = true
-		case "--use-c-strcoll=no":	
+		case "--use-c-strcoll=no":
 			useCstrcoll = false
+		case "--pager":
+			pager = true
 		case "--help":
 			fmt.Print(helpStr)
 			os.Exit(0)
@@ -728,6 +740,31 @@ Sort entries alphabetically unless a sort option is given.
 		}
 	}
 
+	output = os.Stdout
+	var onexit func()
+	if pager {
+		pr, pw, err := os.Pipe()
+		if err != nil {
+			log.Fatal(err)
+		}
+		output = pw
+		ct.Writer = output
+		cmd := exec.Command("less")
+		cmd.Stdout = os.Stdout
+		cmd.Stdin = pr
+		x := make(chan int)
+		onexit = func() {
+			pw.Close()
+			<- x
+		}
+		go func() {
+			if err := cmd.Run(); err != nil {
+				log.Print(err)
+			}
+			x <- 4
+		}()
+	}
+
 	selected := sindex.InitListType(&DisplayEntryList{}).(*DisplayEntryList)
 
 	for iter := files.Iterator(0); iter.Next(); {
@@ -767,10 +804,10 @@ Sort entries alphabetically unless a sort option is given.
 		if !recursiveList {
 			if selected.Len() > 0 {
 				selected.Clear()
-				fmt.Println()
-				fmt.Printf("%s:\n", fileName)
+				fmt.Fprintln(output)
+				fmt.Fprintf(output, "%s:\n", fileName)
 			} else if files.Len() > 1 {
-				fmt.Printf("%s:\n", fileName)
+				fmt.Fprintf(output, "%s:\n", fileName)
 			}
 		}
 
@@ -823,9 +860,9 @@ Sort entries alphabetically unless a sort option is given.
 
 		if longList && !recursiveList {
 			if humanReadable {
-				fmt.Printf("total %s\n", human(total))
+				fmt.Fprintf(output, "total %s\n", human(total))
 			} else {
-				fmt.Printf("total %d\n", total/1024)
+				fmt.Fprintf(output, "total %d\n", total/1024)
 			}
 		}
 
@@ -837,6 +874,10 @@ Sort entries alphabetically unless a sort option is given.
 	if recursiveList && selected.Len() > 0 {
 //		log.Printf("sorting/displaying")
 		display(selected.Data, "")
+	}
+
+	if pager {
+		onexit()
 	}
 	os.Exit(exit)
 }
