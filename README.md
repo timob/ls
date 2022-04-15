@@ -1,6 +1,13 @@
 # LS
 
 ## Install
+### Release
+``` bash
+cd ~/bin
+curl -Ls https://github.com/timob/ls/releases/download/v1.0.0/ls_v1.0.0_Linux-64bit.tar.gz | tar -zxf -
+```
+
+### From Source
 ``` bash
 $ git clone https://github.com/timob/ls.git
 Cloning into 'ls'...
