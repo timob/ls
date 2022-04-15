@@ -609,7 +609,7 @@ Sort entries alphabetically unless a sort option is given.
 						or can be "never" or "auto".
 	--use-c-strcoll				use strcoll by making C call from Go when sorting file names
 						instead of native string comparison function
-	--help				display this help and exit
+	--help					display this help and exit
 `
 		option := options.Data[iter.Pos()]
 		switch option {
