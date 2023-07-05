@@ -34,9 +34,19 @@ func init() {
 }
 
 func GetLongInfo(info os.FileInfo) *LongInfo {
-	return &LongInfo{userName, groupName, 1, 1, 1}
+	return &LongInfo{userName, groupName, 1, 1}
 }
 
 func IsTerminal(fd int) bool {
 	return true
+}
+
+func Strcoll(s1, s2 string) int {
+	if s1 > s2 {
+		return 1
+	} else if s1 < s2 {
+		return -1
+	} else {
+		return 0
+	}
 }
