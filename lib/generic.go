@@ -18,7 +18,7 @@ func GetTermSize() (int, int, error) {
 }
 
 func GetLongInfo(info os.FileInfo) *LongInfo {
-	return &LongInfo{"unkown", "unkown", 1, 1}
+	return &LongInfo{"unknown", "unknown", 1, 1}
 }
 
 func IsTerminal(fd int) bool {

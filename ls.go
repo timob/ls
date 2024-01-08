@@ -684,7 +684,7 @@ Sort entries alphabetically unless a sort option is given.
 					log.Fatalf("invalid line width: %s", numStr)
 				}
 			} else {
-				log.Fatalf("unkown option %s", option)
+				log.Fatalf("unknown option %s", option)
 			}
 		}
 	}
